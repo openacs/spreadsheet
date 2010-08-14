@@ -5,11 +5,23 @@
 -- @cvs-id
 --
 
-    CREATE TABLE qss_sheets (
-        sheet_id integer constraint qss_sheets_sheet_id_fk 
-                 references acs_objects(object_id) 
-                 on delete cascade constraint qss_sheets_sheets_id_pk primary key,
+-- we are not going to reference acs_objects directly, so that this can be used
+-- separate from acs-core.
+CREATE TABLE qss_sheets_object_id_map (
+     sheet_id integer,
+     object_id integer constraint qss_sheets_sheet_id_fk 
+                references acs_objects(object_id) 
+                on delete cascade constraint qss_sheets_sheets_id_pk primary key,
         -- sheet_id constrained to object_id for permissions
+);
+
+
+CREATE SEQUENCE qss_id start 10000;
+SELECT nextval ('qss_id');
+
+
+    CREATE TABLE qss_sheets (
+        id integer DEFAULT nextval ( 'qss_id' ), 
 
         instance_id integer,
         -- object_id of mounted instance (context_id)
@@ -45,8 +57,11 @@
     );
 
     CREATE TABLE qss_cells (
+        id integer DEFAULT nextval ( 'qss_id' ),  
         sheet_id varchar(40) not null,
         --  should be a value from qss_sheets.sheet_id
+        cell_row integer not null,
+        cell_column integer not null,
 
         cell_value varchar(1025),
         -- returned by function or user input value
@@ -87,8 +102,6 @@
         -- a label when displaying cell as a single value
         -- if cell_row is 0 then this is a column_title
 
-        cell_row integer not null,
-        cell_column integer not null,
         last_calculated timestamptz,
         -- handy for checking when cell value dependencies have changed
 
