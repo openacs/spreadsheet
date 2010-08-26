@@ -1,8 +1,10 @@
--- spreadsheet-create.sql
+-- spreadsheet-drop.sql
 --
 -- @author Dekka Corp.
--- @license GNU GENERAL PUBLIC LICENSE, Version 2, June 1991
+-- @for OpenACS.org
 -- @cvs-id
 --
     DROP TABLE qss_cells;
     DROP TABLE qss_sheets;
+    DROP TABLE qss_sheets_object_id_map;
+    DROP SEQUENCE qss_id_seq;

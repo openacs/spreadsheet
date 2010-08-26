@@ -1,7 +1,7 @@
 -- spreadsheet-create.sql
 --
 -- @author Dekka Corp.
--- @license GNU GENERAL PUBLIC LICENSE, Version 2, June 1991
+-- @for OpenACS.org
 -- @cvs-id
 --
 
@@ -9,19 +9,17 @@
 -- separate from acs-core.
 CREATE TABLE qss_sheets_object_id_map (
      sheet_id integer,
-     object_id integer constraint qss_sheets_sheet_id_fk 
-                references acs_objects(object_id) 
-                on delete cascade constraint qss_sheets_sheets_id_pk primary key,
+     object_id integer 
         -- sheet_id constrained to object_id for permissions
 );
 
 
-CREATE SEQUENCE qss_id start 10000;
-SELECT nextval ('qss_id');
+CREATE SEQUENCE qss_id_seq start 10000;
+SELECT nextval ('qss_id_seq');
 
 
-    CREATE TABLE qss_sheets (
-        id integer DEFAULT nextval ( 'qss_id' ), 
+CREATE TABLE qss_sheets (
+        id integer not null primary key,
 
         instance_id integer,
         -- object_id of mounted instance (context_id)
@@ -57,7 +55,7 @@ SELECT nextval ('qss_id');
     );
 
     CREATE TABLE qss_cells (
-        id integer DEFAULT nextval ( 'qss_id' ),  
+        id integer not null primary key,
         sheet_id varchar(40) not null,
         --  should be a value from qss_sheets.sheet_id
         cell_row integer not null,
@@ -108,4 +106,4 @@ SELECT nextval ('qss_id');
         last_modified timestamptz
         -- data entry (cell value) last changed
 
-    );
+);
