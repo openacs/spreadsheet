@@ -24,6 +24,9 @@ CREATE TABLE qss_sheets (
         instance_id integer,
         -- object_id of mounted instance (context_id)
 
+        user_id integer,
+        -- user_id of user that created spreadsheet
+
         name_abbrev varchar(40),
         -- no spaces, single word reference that can be used in urls, filenames etc
 
@@ -46,6 +49,8 @@ CREATE TABLE qss_sheets (
 
         last_modified timestamptz,
         -- should be the max(qss_cells.last_modified) for a sheet_id
+        last_modified_by integer,
+        -- user_id of user that last modified spreadsheet
 
         sheet_status varchar(8)
         -- value will likely be one of
@@ -56,7 +61,7 @@ CREATE TABLE qss_sheets (
 
     CREATE TABLE qss_cells (
         id integer not null primary key,
-        sheet_id varchar(40) not null,
+        sheet_id integer not null,
         --  should be a value from qss_sheets.sheet_id
         cell_row integer not null,
         cell_column integer not null,
@@ -103,7 +108,8 @@ CREATE TABLE qss_sheets (
         last_calculated timestamptz,
         -- handy for checking when cell value dependencies have changed
 
-        last_modified timestamptz
+        last_modified timestamptz,
         -- data entry (cell value) last changed
-
+        last_modified_by integer
+        -- user that last modified cell
 );
