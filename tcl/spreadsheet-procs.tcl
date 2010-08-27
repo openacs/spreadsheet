@@ -27,6 +27,22 @@ ad_proc -private spreadsheet::status_q {
     return $sheet_status
 }
 
+ad_proc -private spreadsheet::exists_for_rwd_q { 
+    sheet_id
+    instance_id
+} {
+    returns 1 if sheet_id exists. This is handy for reads, writes, and deletes. Use status_q instead if you want to check for the existence of the id only.
+} {
+    db_0or1row spreadsheet_exists_q "select sheet_status from qss_sheets where id = :sheet_id and instance_id = :instance_id"
+    if { ![info exists sheet_status] } {
+        set exists_p 0
+    } else {
+        set exists_p 1
+    }
+    return $exists_p
+}
+
+
 ad_proc -public spreadsheet::create { 
     id
     name_abbrev
@@ -63,15 +79,15 @@ ad_proc -public spreadsheet::list {
     If user_id is passed, results are sheets that the user has created or modified within package_id.
 } {
     if { $user_id eq 0 } {
-        set table [db_list_of_lists get_list_of_spreadsheets {select id name_abbrev sheet_title last_modified by_user from qss_sheets where instance_id = :package_id order by sheet_title } ]
+        set table [db_list_of_lists get_list_of_spreadsheets {select id, name_abbrev, sheet_title, last_modified, by_user from qss_sheets where instance_id = :package_id order by sheet_title } ]
     } else {
-        set table [db_list_of_lists get_list_of_spreadsheets_for_user_id {select id name_abbrev sheet_title last_modified by_user
+        set table [db_list_of_lists get_list_of_spreadsheets_for_user_id {select id, name_abbrev, sheet_title, last_modified, by_user
             from qss_sheets where ( instance_id = :package_id and user_id = :user_id ) or instance_id in 
               ( select instance_id from qss_cells where sheet_id in ( select id from qss_sheets where instance_id = :package_id unique ) and last_modified_by = :user_id ) order by sheet_title } ]
     } 
 }
 
-ad_proc -public spreadsheet::one { 
+ad_proc -public spreadsheet::attributes { 
     sheet_id
 } {
     returns attributes of a sheet in list format: {id name_abbrev sheet_title last_modified by_user orientation row_count column_count last_calculated last_modified sheet_status} 
@@ -79,17 +95,21 @@ ad_proc -public spreadsheet::one {
     set package_id [ad_conn package_id]
     set user_id [ad_conn user_id]
     set read_p [permission::permission_p -party_id $user_id -object_id $package_id -privilege read]
-    set sheet_list [db_list get_spreadsheet_attributes {select id name_abbrev sheet_title last_modified by_user orientation row_count column_count last_calculated last_modified sheet_status from qss_sheets where instance_id = :package_id and id = :sheet_id } ]
+    if { $read_p && [spreadsheet::exists_for_rwd_q $sheet_id $package_id] } {
+        set sheet_list [db_list get_spreadsheet_attributes {select id, name_abbrev, sheet_title, last_modified, by_user, orientation, row_count, column_count, last_calculated, last_modified, sheet_status from qss_sheets where instance_id = :package_id and id = :sheet_id } ]
+    } else {
+        set sheet_list [list ]
+    }
 }
 
-ad_proc -public spreadsheet::read { 
+ad_proc -public spreadsheet::cells_read { 
     sheet_id
     {start ""}
     {count ""}
 } {
-    reads spreadsheet, returns list_of_lists
-    If orientation is RC, each element of list is a row.
-    If orientation is CR, each element of list is a column.
+    reads spreadsheet, returns list_of_lists, each cell is an element in the list
+    If orientation is RC, cells are sorted first by row.
+    If orientation is CR, cells are sorted first by column.
     first element contains header references
 } {
     if { [ad_var_type_check_number_p $start] && $start > 0 && [ad_var_type_check_number_p $count] && $count > 0 } {
@@ -101,32 +121,65 @@ ad_proc -public spreadsheet::read {
     set read_p [permission::permission_p -party_id $user_id -object_id $package_id -privilege read]
     # if orientation is RC, start is start_row, count is num_of_rows
     # if orientation is CR, start is start_col, count is num_of_columns
-    if { $read_p } {
+    if { $read_p && [spreadsheet::exists_for_rwd_q $sheet_id $package_id] } {
         if { [info exists $page_start] } {
-            set table [db_list_of_lists get_all_cells_of_sheet {select id, cell_row, cell_column, cell_value, cell_value_sq, cell_format, cell_proc, cell_calc_depth, cell_name, cell_title from qss_cells where sheed_id = :sheet_id} limit :page_size offest :page_start ]
+            set table [db_list_of_lists get_all_cells_of_sheet {select id, cell_row, cell_column, cell_value, cell_value_sq, cell_format, cell_proc, cell_calc_depth, cell_name, cell_title from qss_cells where sheet_id = :sheet_id} limit :page_size offest :page_start ]
         } else {
-            set table [db_list_of_lists get_all_cells_of_sheet {select id, cell_row, cell_column, cell_value, cell_value_sq, cell_format, cell_proc, cell_calc_depth, cell_name, cell_title from qss_cells where sheed_id = :sheet_id} ]
+            set table [db_list_of_lists get_all_cells_of_sheet {select id, cell_row, cell_column, cell_value, cell_value_sq, cell_format, cell_proc, cell_calc_depth, cell_name, cell_title from qss_cells where sheet_id = :sheet_id} ]
         }
     } else {
         set table [list ]
     }        
+    set table [linsert $table 0 [list id cell_row cell_column cell_value cell_value_sq cell_format cell_proc cell_calc_depth cell_name cell_title]
     return $table
 }
 
-ad_proc -public spreadsheet::write {
-    id
+ad_proc -public spreadsheet::cells_write {
+    sheet_id
     list_of_lists
 } {
-    writes spreadsheet
+    writes spreadsheet cells. 
     assumes first element of list is a list of header references to columns (if orientatin is RC) or rows (if CR).
     if row or column reference is not provided, appends new lines.
-    Reserved header references have features automatically attached to them:
+    Reserved header references (attribute) have features automatically attached to them:
     cell_row (positive integer) if RC orientation, replaces an existing cell_row if it exists.
     cell_column (positive integer) if CR orientation, replaces an existing cell_column if it exists.
+    id (positive integer) replaces existing id if it exists.
+    other attrributes: cell_format cell_proc cell_name cell_title
 } {
+    set success 0
+    set package_id [ad_conn package_id]
+    set user_id [ad_conn user_id]
+    set write_p [permission::permission_p -party_id $user_id -object_id $package_id -privilege write]
+    if { $write_p && [spreadsheet::exists_for_rwd_q $sheet_id $package_id] } {
+        # collect allowed attributes from first element
+        set attributes_list [list id cell_row cell_column cell_value cell_format cell_proc cell_name cell_title]
+        set maybe_attributes_list [lindex $list_of_lists 0]
+        set attributes_passed_list [list ]
+        foreach attribute_test $maybe_attributes_list {
+            set attribute_index [lsearch -exact $attributes_list $attribute_test]
+            if { $attribute_index > 0 } {
+                set attribute_arr($attribute_test) $attribute_index
+                lappend attributes_passed_list $attribute_test
+            }
+        }
+        
+        # loop that grabs a cell
+        set cells_list [lreplace $list_of_lists 0 0]
+        set id_exists_p [expr { [lsearch -exact $attributes_passed_list id] > 0 } ]
+        foreach cell_attributes_input_list $cells_list {
+            # if id exists, use that reference over cell_row or cell_column
+            
+            # loop that assigns cell attributes
 
 
+            #  write cell attributes
+        
 
+        }
+
+    }
+    return $success
 }
 
 ad_proc -public spreadsheet::delete {
