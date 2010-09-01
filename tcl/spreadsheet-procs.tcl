@@ -5,6 +5,12 @@ ad_library {
     @cs-id $Id:
 }
 
+
+# orientation defaults to RC (row column reference and format, where rows within a column are the same data type)
+# for CR orientation, switch the references so a column ref is a row reference and a row ref is a column ref.
+# this could get confusing...  All internal should orient at RC. if CR orientation, just display by switching axis
+# user input would then be converted before passing to procs.
+
 namespace eval spreadsheet {}
 
 ad_proc -public spreadsheet::new_id { 
@@ -26,6 +32,46 @@ ad_proc -private spreadsheet::status_q {
     }
     return $sheet_status
 }
+
+ad_proc -private spreadsheet::cell_id_from_other { 
+    sheet_id
+    instance_id
+    {orientation "RC"}
+    {cell_row ""}
+    {cell_column ""}
+    {cell_name ""}
+    {cell_title ""}
+} {
+    gets cell_id from indirect references
+} {
+    if { [spreadsheet::exists_for_rwd_q $sheet_id $instance_id] } {
+        if { $orientation eq "RC" } {
+            db_0or1row get_cell_id_from_rc_ref "select cell_id from qss_cells where sheet_id = :sheet_id and (
+                  (cell_name = :cell_name ) or
+                  (cell_row = :cell_row and cell_column=:cell_column) or
+                  (cell_row = :cell_row and cell_column in 
+                      ( select cell_column from qss_cells where sheet_id = :sheet_id and cell_row = '0' and cell_name = :cell_name unique) )"
+        } 
+    }
+    if { ![info exists cell_id] } {
+        set cell_id ""
+    }
+    return $cell_id
+}
+
+
+ad_proc -private spreadsheet::id_from_cell_id { 
+    sheet_id
+} {
+    gets spreadsheet_id from cell_id
+} {
+    db_0or1row get_spreadsheet_id_from_cell_id "select sheet_id from qss_cells where id = :id"
+    if { ![info exists sheet_id] } {
+        set sheet_id ""
+    }
+    return $sheet_id
+}
+
 
 ad_proc -private spreadsheet::exists_for_rwd_q { 
     sheet_id
@@ -164,18 +210,47 @@ ad_proc -public spreadsheet::cells_write {
             }
         }
         
-        # loop that grabs a cell
+        # separate cells attributes from attribute headers
         set cells_list [lreplace $list_of_lists 0 0]
         set id_exists_p [expr { [lsearch -exact $attributes_passed_list id] > 0 } ]
+        # loop that grabs a cell
         foreach cell_attributes_input_list $cells_list {
             # if id exists, use that reference over cell_row or cell_column
-            
-            # loop that assigns cell attributes
+            # make sure the id is bound to this spreadsheet, or it could overwrite parts of other spreadsheets.
 
+            # loop that assigns cell attributes
+            set mode ""
+            set attributes_to_write_list [list ]
+            set att_values_to_write_list [list ]
+            set sql_separator ""
+            foreach attribute_to_write $attribute_passed_list {
+                set ${attribute_to_write} [lindex $cell_attributes_input_list $attribute_arr($attribute_to_write)]
+                if { $attribute_to_write eq "id" && $mode eq "" } {
+                    set mode id
+                    # cell_id
+                    set id $attr_value(id)
+                }  elseif { } {
+                    lappend attributes_to_write_list $attribute_to_write
+                    lappend att_values_to_write_list $attr_value(${attribute_to_write})
+                    append update_text "${sql_separator}${attributed_to_write}=:${attribute_to_write}"
+                    set sql_separator ","
+                }
+            }
 
             #  write cell attributes
-        
+            if { [lsearch -exact cell_row 
+            if { $mode eq "id" } {
+                if { [spreadsheet::id_from_cell_id $id] == $sheet_id } {
+                    db_dml update_cell_attributes {update qss_cells set :update_text where id = :id}
+                } else {
+                    set id [spreadsheet::new_id]
+                    set attributes_to_write_db [template::util::tcl_to_sql_list $attributes_to_write_list]
+                    set att_values_to_write_db [template::util::tcl_to_sql_list $att_values_to_write_list]
+                    db_dml insert_spreadsheet_cell {insert into qss_cells ( id, :attributes_to_write_db) values ( :id, :att_values_write_db) }
+                }
+            } else {
 
+            }
         }
 
     }
