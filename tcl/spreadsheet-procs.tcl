@@ -223,7 +223,12 @@ ad_proc -public spreadsheet::cells_write {
             set attributes_to_write_list [list ]
             set att_values_to_write_list [list ]
             set sql_separator ""
-            foreach attribute_to_write $attribute_passed_list {
+            # set the following, because they are referenced to find id, and may not be in attributes_passed_list
+            set cell_row ""
+            set cell_column ""
+            set cell_name ""
+            set cell_title ""
+            foreach attribute_to_write $attributes_passed_list {
                 set ${attribute_to_write} [lindex $cell_attributes_input_list $attribute_arr($attribute_to_write)]
                 if { $attribute_to_write eq "id" && $mode eq "" } {
                     set mode id
@@ -236,9 +241,14 @@ ad_proc -public spreadsheet::cells_write {
                     set sql_separator ","
                 }
             }
-
+            if { $mode ne "id" } {
+                #  is there an implied id?
+                if { [set id [spreadsheet::cell_id_from_other $sheet_id $package_id "" $cell_row $cell_column $cell_name $cell_title] ] ne "" } {
+                    set mode id
+                }
+            }
             #  write cell attributes
-            if { [lsearch -exact cell_row 
+
             if { $mode eq "id" } {
                 if { [spreadsheet::id_from_cell_id $id] == $sheet_id } {
                     db_dml update_cell_attributes {update qss_cells set :update_text where id = :id}
@@ -249,10 +259,10 @@ ad_proc -public spreadsheet::cells_write {
                     db_dml insert_spreadsheet_cell {insert into qss_cells ( id, :attributes_to_write_db) values ( :id, :att_values_write_db) }
                 }
             } else {
-
+                # we don't know any other mode right now. Log it.
+                ns_log Warning "spreadsheet::cells_write: mode is not 'id' for sheet_id ${sheet_id}, where update_text = ${update_text}"
             }
         }
-
     }
     return $success
 }
