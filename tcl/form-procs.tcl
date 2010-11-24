@@ -46,6 +46,13 @@ ad_proc -public qf_get_inputs {
     }
 }
 
+ad_proc -public qf_remember_attributes {
+} {
+    changes qf_* form building procs to use the previous attribute values used with the last tag of same type (input,select,button etc).
+} {
+    upvar __qf_remember_attributes __qf_remember_attributes
+    set __qf_remember_attributes 1
+}
 
 ad_proc -public qf_open { 
     {-action ""}
@@ -60,8 +67,46 @@ ad_proc -public qf_open {
     initiates a form with form tag and supplied attributes. Returns an id if one is not provided.
 } {
 # use upvar to set form content, set/change defaults
-upvar __form_ids_list __form_ids_list, __form_last_id __form_last_id, __form_arr __form_arr
+# __qf_arr contains last attribute values
+# __form_last_id is in __qf_arr(form_id)
+upvar __form_ids_list __form_ids_list, __form_arr __form_arr
+upvar __qf_remember_attributes __qf_remember_attributes, __qf_arr __qf_arr
+
+if { ![info exists __qf_remember_attributes] } {
+    set __qf_remember_attributes 0
+}
+if { $__qf_remember_attributes } {
+    if { $action eq "" && [info exists __qf_arr(form_action)] } {
+        set action $__qf_arr(form_action)
+    }~
+    if { $class eq "" && [info exists __qf_arr(form_class)] } {
+        set class $__qf_arr(form_class)
+    }
+    if { $method eq "" && [info exists __qf_arr(form_method)] } {
+        set method $__qf_arr(form_method)
+    }
+    if { $name eq "" && [info exists __qf_arr(form_name)] } {
+        set name $__qf_arr(form_name)
+    }
+    if { $style eq "" && [info exists __qf_arr(form_style)] } {
+        set style $__qf_arr(form_style)
+    }
+    if { $target eq "" && [info exists __qf_arr(form_target)] } {
+        set target $__qf_arr(form_target)
+    }
+    if { $title eq "" && [info exists __qf_arr(form_title)] } {
+        set title $__qf_arr(form_title)
+    }
+}
 # __form_arr contains new forms, with array index (id) __form_arr(id)
+set __qf_arr(form_action) $action
+set __qf_arr(form_id) $id
+set __qf_arr(form_class) $class
+set __qf_arr(form_method) $method
+set __qf_arr(form_name) $name
+set __qf_arr(form_style) $style
+set __qf_arr(form_target) $target
+set __qf_arr(form_title) $title
     return 
 }
 
@@ -179,3 +224,18 @@ ad_proc -public qf_insert_html {
 # use upvar to set form content, set/change defaults
     return 
 }
+
+ad_proc -private qf_insert_attributes {
+    args_list
+ } {
+    returns args_list of tag attribute pairs (attribute,value) as html to be inserted into a tag
+ } {
+     set html ""
+     foreach {attribute value} $args_list {
+         if { [string range $attribute 1 1] eq "-" } {
+             set $attribute [string range $attribute 2 end]
+         }
+         append html " $attribute=$value"
+     }
+     return $html
+ }
