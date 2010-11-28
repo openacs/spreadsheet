@@ -11,7 +11,10 @@ ad_library {
 # __form_input_arr = array that contains existing form input and defaults, only one form can be posted at a time
 # __form_ids_list  = list that contains existing form ids
 # __form_ids_open_list = list that contains forms that are not closed
-
+# __form_ids_fieldset_open_list = list that contains form ids where a fieldset tag is open
+# __form_arr contains forms built as strings by appending tags to strings, indexed by form id, for example __form_arr($id)
+# __qf_arr contains last attribute values of tag, indexed by {tag}_attribute, __form_last_id is in __qf_arr(form_id)
+# a blank id passed in anything other than qf_form assumes the current (most recent used form_id)
 ad_proc -public qf_get_inputs {
     {-form_array_name __form_input_arr}
 } {
@@ -64,51 +67,52 @@ ad_proc -public qf_open {
     {-target ""}
     {-title ""}
 } {
-    initiates a form with form tag and supplied attributes. Returns an id if one is not provided.
+    initiates a form with form tag and supplied attributes. Returns an id. A clumsy url based id is provided if not passed (not recommended).
 } {
-# use upvar to set form content, set/change defaults
-# __qf_arr contains last attribute values
-# __form_last_id is in __qf_arr(form_id)
-upvar __form_ids_list __form_ids_list, __form_arr __form_arr
-upvar __qf_remember_attributes __qf_remember_attributes, __qf_arr __qf_arr
+    set attributes_list [list action class id method name style target title]
+    array set attributes_arr [list action $action class $class id $id method $method name $name style $style target $target title $title]
+    # use upvar to set form content, set/change defaults
+    # __qf_arr contains last attribute values of tag, indexed by {tag}_attribute, __form_last_id is in __qf_arr(form_id)
+    upvar __form_ids_list __form_ids_list, __form_arr __form_arr
+    upvar __qf_remember_attributes __qf_remember_attributes, __qf_arr __qf_arr
+    if { ![info exists __qf_remember_attributes] } {
+        set __qf_remember_attributes 0
+    }
+    if { ![info exists __form_ids_list] } {
+        set __form_ids_list [list]
+    }
+    # use previous tag attribute values?
+    if { $__qf_remember_attributes } {
+        foreach attribute $attributes_list {
+            if { $attribute ne "id" && $attributes_arr($attribute) eq "" && [info exists __qf_arr(form_$attribute)] } {
+                set attriubtes_arr($attribute) $__qf_arr(form_$attribute)
+            }
+        }
+    }
+    # every form gets an id, if only to help identify it in debugging
+    if { $attributes_arr(id) eq "" } { 
+        set attributes_arr(id) "[ad_conn url]-[llength $__form_ids_list]"
+    }
 
-if { ![info exists __qf_remember_attributes] } {
-    set __qf_remember_attributes 0
+    # prepare attributes to process
+    set tag_attributes_list [list]
+    foreach attribute $attributes_list {
+        set __qf_arr(form_$attribute) $attributes_arr($attribute)
+        # if a form tag requires an attribute, the following test needs to  be forced true
+        if { $attributes_arr($attribute) ne "" } {
+            lappend tag_attributes_list $attribute $attributes_arr($attribute)
+        }
+    }
+    
+    set tag_html "<form[qf_insert_attributes $tag_attributes_list]>"
+    # set results  __form_arr 
+    append __form_arr($id) "$tag_html\n"
+    if { [lsearch $__form_ids_list $id] == -1 } {
+        lappend __form_ids_list $id
+    }
+    return $attributes_arr(id)
 }
-if { $__qf_remember_attributes } {
-    if { $action eq "" && [info exists __qf_arr(form_action)] } {
-        set action $__qf_arr(form_action)
-    }~
-    if { $class eq "" && [info exists __qf_arr(form_class)] } {
-        set class $__qf_arr(form_class)
-    }
-    if { $method eq "" && [info exists __qf_arr(form_method)] } {
-        set method $__qf_arr(form_method)
-    }
-    if { $name eq "" && [info exists __qf_arr(form_name)] } {
-        set name $__qf_arr(form_name)
-    }
-    if { $style eq "" && [info exists __qf_arr(form_style)] } {
-        set style $__qf_arr(form_style)
-    }
-    if { $target eq "" && [info exists __qf_arr(form_target)] } {
-        set target $__qf_arr(form_target)
-    }
-    if { $title eq "" && [info exists __qf_arr(form_title)] } {
-        set title $__qf_arr(form_title)
-    }
-}
-# __form_arr contains new forms, with array index (id) __form_arr(id)
-set __qf_arr(form_action) $action
-set __qf_arr(form_id) $id
-set __qf_arr(form_class) $class
-set __qf_arr(form_method) $method
-set __qf_arr(form_name) $name
-set __qf_arr(form_style) $style
-set __qf_arr(form_target) $target
-set __qf_arr(form_title) $title
-    return 
-}
+
 
 ad_proc -public qf_fieldset { 
     {-id ""}
@@ -118,10 +122,72 @@ ad_proc -public qf_fieldset {
     {-title ""}
     {-valign ""}
 } {
-    starts a form fieldset by appending a fieldset tag. if this id is supplied with form tags, form tags are appended to this fieldset. Fieldset closes when form closed.
+    starts a form fieldset by appending a fieldset tag.  Fieldset closes when form closed or another fieldset defined in same form.
 } {
-# use upvar to set form content, set/change defaults
-    return 
+    set attributes_list [list align class id style title valign]
+    array set attributes_arr [list align $align class $class id $id style $style title $title valign $valign]
+    # use upvar to set form content, set/change defaults
+    # __qf_arr contains last attribute values of tag, indexed by {tag}_attribute, __form_last_id is in __qf_arr(form_id)
+    upvar __form_ids_list __form_ids_list, __form_arr __form_arr
+    upvar __qf_remember_attributes __qf_remember_attributes, __qf_arr __qf_arr
+    upvar __form_ids_fieldset_open_list __form_ids_fieldset_open_list
+    if { ![info exists __qf_remember_attributes] } {
+        ns_log Error "qf_fieldset: invoked before qf_form or used in a different namespace than qf_form.."
+    }
+    if { ![info exists __form_ids_list] } {
+        ns_log Error "qf_fieldset: invoked before qf_form or used in a different namespace than qf_form.."
+    }
+    # default to last modified form id
+    if { $id eq "" } { 
+        set id $__qf_arr(form_id) 
+    }
+    if { [lsearch $__form_ids_list $id] == -1 } {
+        ns_log Error "qf_fieldset: unknown form id $id"
+    }
+
+    # use previous tag attribute values?
+    if { $__qf_remember_attributes } {
+        foreach attribute $attributes_list {
+            if { $attribute ne "id" && $attributes_arr($attribute) eq "" && [info exists __qf_arr(fieldset_$attribute)] } {
+                set attriubtes_arr($attribute) $__qf_arr(form_$attribute)
+            }
+        }
+    }
+
+    # prepare attributes to process
+    set tag_attributes_list [list]
+    foreach attribute $attributes_list {
+        set __qf_arr(form_$attribute) $attributes_arr($attribute)
+        # if a form tag requires an attribute, the following test needs to  be forced true
+        if { $attributes_arr($attribute) ne "" } {
+            lappend tag_attributes_list $attribute $attributes_arr($attribute)
+        }
+    }
+    set tag_html ""
+    set previous_fs 0
+    # first close any existing fieldset tag with form id
+    set __fieldset_open_list_exists [info exists __form_ids_fieldset_open_list]
+    if { $__fieldset_open_list_exists } {
+        if { [lsearch $__form_ids_fieldset_open_list $id] > -1 } {
+            append tag_html "</fieldset>\n"
+            set previous_fs 1
+        }
+    }
+    append tag_html "<fieldset[qf_insert_attributes $tag_attributes_list]>"
+
+    # set results __form_ids_fieldset_open_list
+    if { $previous_fs } {
+        # no changes needed, "fieldset open" already indicated
+    } else {
+        if { $__fieldset_open_list_exists } {
+            lappend __form_ids_fieldset_open_list $id
+        } else {
+            set __form_ids_fieldset_open_list [list $id]
+        }
+    }
+    # set results  __form_arr, we checked form id above.
+    append __form_arr($id) "$tag_html\n"
+
 }
 
 ad_proc -public qf_textarea { 
@@ -168,11 +234,21 @@ ad_proc -public qf_select {
 ad_proc -public qf_close { 
     {-id ""}
 } {
-    closes a form by appending a close form tag. if id supplied, only closes that referenced form and any fieldsets associated with it.
+    closes a form by appending a close form tag. if id supplied, only closes that referenced form and any fieldsets associated with it.  
 } {
 # use upvar to set form content, set/change defaults
     return 
 }
+
+ad_proc -public qf_read { 
+    {-id ""}
+} {
+    returns the content of forms. If the form is not closed, returns the form in its partial state of completeness. If an id is supplied, returns the content of a specific form.
+} {
+# use upvar to set form content, set/change defaults
+    return 
+}
+
 
 ad_proc -public qf_button {
     {-type ""}
