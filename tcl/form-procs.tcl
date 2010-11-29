@@ -15,6 +15,10 @@ ad_library {
 # __form_arr contains forms built as strings by appending tags to strings, indexed by form id, for example __form_arr($id)
 # __qf_arr contains last attribute values of tag, indexed by {tag}_attribute, __form_last_id is in __qf_arr(form_id)
 # a blank id passed in anything other than qf_form assumes the current (most recent used form_id)
+
+# to fix:  id for not form tag should not be same as form id. add an attribute -form_id for assigning tags to specific forms.
+
+
 ad_proc -public qf_get_inputs {
     {-form_array_name __form_input_arr}
 } {
@@ -157,7 +161,7 @@ ad_proc -public qf_fieldset {
     # prepare attributes to process
     set tag_attributes_list [list]
     foreach attribute $attributes_list {
-        set __qf_arr(form_$attribute) $attributes_arr($attribute)
+        set __qf_arr(fieldset_$attribute) $attributes_arr($attribute)
         # if a form tag requires an attribute, the following test needs to  be forced true
         if { $attributes_arr($attribute) ne "" } {
             lappend tag_attributes_list $attribute $attributes_arr($attribute)
@@ -207,8 +211,51 @@ ad_proc -public qf_textarea {
 } {
     creates a form textarea tag, supplying attributes where nonempty values are supplied.
 } {
-# use upvar to set form content, set/change defaults
-    return 
+    set attributes_list [list value accesskey align class cols id name readonly rows style tabindex title wrap]
+    array set attributes_arr [list value $value accesskey $accesskey align $align class $class cols $cols id $id name $name readonly $readonly style $style tabindex $tabindex title $title wrap $wrap]
+    # use upvar to set form content, set/change defaults
+    # __qf_arr contains last attribute values of tag, indexed by {tag}_attribute, __form_last_id is in __qf_arr(form_id)
+    upvar __form_ids_list __form_ids_list, __form_arr __form_arr
+    upvar __qf_remember_attributes __qf_remember_attributes, __qf_arr __qf_arr
+    upvar __form_ids_fieldset_open_list __form_ids_fieldset_open_list
+    if { ![info exists __qf_remember_attributes] } {
+        ns_log Error "qf_textarea: invoked before qf_form or used in a different namespace than qf_form.."
+    }
+    if { ![info exists __form_ids_list] } {
+        ns_log Error "qf_textarea: invoked before qf_form or used in a different namespace than qf_form.."
+    }
+    # default to last modified form id
+    if { $id eq "" } { 
+        set id $__qf_arr(form_id) 
+    }
+    if { [lsearch $__form_ids_list $id] == -1 } {
+        ns_log Error "qf_textarea: unknown form id $id"
+    }
+
+    # use previous tag attribute values?
+    if { $__qf_remember_attributes } {
+        foreach attribute $attributes_list {
+            if { $attribute ne "id" && $attribute ne "value" && $attributes_arr($attribute) eq "" && [info exists __qf_arr(textarea_$attribute)] } {
+                set attriubtes_arr($attribute) $__qf_arr(textarea_$attribute)
+            }
+        }
+    }
+
+    # prepare attributes to process
+    set tag_attributes_list [list]
+    foreach attribute $attributes_list {
+        if { $attribute ne value } {
+            set __qf_arr(textarea_$attribute) $attributes_arr($attribute)
+            # if a form tag requires an attribute, the following test needs to  be forced true
+            if { $attributes_arr($attribute) ne "" } {
+                lappend tag_attributes_list $attribute $attributes_arr($attribute)
+            }
+        } 
+    }
+    set tag_html "<textarea[qf_insert_attributes $tag_attributes_list]>$value</textarea>"
+    # set results  __form_arr, we checked form id above.
+    append __form_arr($id) "${tag_html}\n"
+     
 }
 
 ad_proc -public qf_select { 
