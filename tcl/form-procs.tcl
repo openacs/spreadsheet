@@ -19,8 +19,8 @@ ad_library {
 # to fix:  id for not form tag should not be same as form id. add an attribute -form_id for assigning tags to specific forms.
 
 
-ad_proc -public qf_get_inputs {
-    {-form_array_name __form_input_arr}
+ad_proc -public qf_get_inputs_as_array {
+    {form_array_name "__form_input_arr"}
 } {
     get inputs from form submission
 } {
@@ -90,8 +90,8 @@ ad_proc -public qf_open {
     set attributes_full_list [list action class id method name style target title]
     set arg_list [list $arg1 $arg2 $arg3 $arg4 $arg5 $arg6 $arg7 $arg8 $arg9 $arg10 $arg11 $arg12 $arg13 $arg14 $arg15 $arg16]
     set arrtibutes_list [list]
-    foreach {attribute value} {
-        set attribute_index [lsearch -exact $arg_list $attribute]
+    foreach {attribute value} $arg_list {
+        set attribute_index [lsearch -exact $attributes_full_list $attribute]
         if { $attriubte_index > -1 } {
             set attributes_arr($attribute) $value
             lappend attributes_list $attribute
@@ -99,7 +99,7 @@ ad_proc -public qf_open {
             ns_log Error "qf_open: $attribute is not a valid attribute. invoke with attribute value pairs. Separate each with a space."
         }
     }
-    if { [info exists attributes_arr(method)] && $attributes_arr(method) eq "" } {
+    if { ![info exists attributes_arr(method)] } {
         set attributes_arr(method) "post"
     }
 
@@ -112,13 +112,13 @@ ad_proc -public qf_open {
     # use previous tag attribute values?
     if { $__qf_remember_attributes } {
         foreach attribute $attributes_list {
-            if { $attribute ne "id" && $attributes_arr($attribute) eq "" && [info exists __qf_arr(form_$attribute)] } {
+            if { $attribute ne "id" && ![info exists attributes_arr($attribute)] && [info exists __qf_arr(form_$attribute)] } {
                 set attriubtes_arr($attribute) $__qf_arr(form_$attribute)
             } 
         }
     }
     # every form gets an id, if only to help identify it in debugging
-    if { $attributes_arr(id) eq "" } { 
+    if { ![info exists attributes_arr(id) || $attributes_arr(id) eq "" } { 
         set attributes_arr(id) "[ad_conn url]-[llength $__form_ids_list]"
     }
 
@@ -167,8 +167,8 @@ ad_proc -public qf_fieldset {
     set attributes_full_list [list align class id style title valign]
     set arg_list [list $arg1 $arg2 $arg3 $arg4 $arg5 $arg6 $arg7 $arg8 $arg9 $arg10 $arg11 $arg12]
     set arrtibutes_list [list]
-    foreach {attribute value} {
-        set attribute_index [lsearch -exact $arg_list $attribute]
+    foreach {attribute value} $arg_list {
+        set attribute_index [lsearch -exact $attributes_full_list $attribute]
         if { $attriubte_index > -1 } {
             set attributes_arr($attribute) $value
             lappend attributes_list $attribute
@@ -184,17 +184,17 @@ ad_proc -public qf_fieldset {
         ns_log Error "qf_fieldset: invoked before qf_form or used in a different namespace than qf_form.."
     }
     # default to last modified form id
-    if { $id eq "" } { 
-        set id $__qf_arr(form_id) 
+    if { ![info exists attributes_arr(i)] || $attributes_arr(id) eq "" } { 
+        set attributes_arr(id) $__qf_arr(form_id) 
     }
-    if { [lsearch $__form_ids_list $id] == -1 } {
-        ns_log Error "qf_fieldset: unknown form id $id"
+    if { [lsearch $__form_ids_list $attributes_arr(id)] == -1 } {
+        ns_log Error "qf_fieldset: unknown form id $attributes_arr(id)"
     }
 
     # use previous tag attribute values?
     if { $__qf_remember_attributes } {
         foreach attribute $attributes_list {
-            if { $attribute ne "id" && $attributes_arr($attribute) eq "" && [info exists __qf_arr(fieldset_$attribute)] } {
+            if { $attribute ne "id" && ![info exists attributes_arr($attribute)] && [info exists __qf_arr(fieldset_$attribute)] } {
                 set attriubtes_arr($attribute) $__qf_arr(form_$attribute)
             }
         }
@@ -204,17 +204,14 @@ ad_proc -public qf_fieldset {
     set tag_attributes_list [list]
     foreach attribute $attributes_list {
         set __qf_arr(fieldset_$attribute) $attributes_arr($attribute)
-        # if a form tag requires an attribute, the following test needs to  be forced true
-        if { $attributes_arr($attribute) ne "" } {
-            lappend tag_attributes_list $attribute $attributes_arr($attribute)
-        }
+        lappend tag_attributes_list $attribute $attributes_arr($attribute)
     }
     set tag_html ""
     set previous_fs 0
     # first close any existing fieldset tag with form id
     set __fieldset_open_list_exists [info exists __form_ids_fieldset_open_list]
     if { $__fieldset_open_list_exists } {
-        if { [lsearch $__form_ids_fieldset_open_list $id] > -1 } {
+        if { [lsearch $__form_ids_fieldset_open_list $attributes_arr(id)] > -1 } {
             append tag_html "</fieldset>\n"
             set previous_fs 1
         }
@@ -226,13 +223,13 @@ ad_proc -public qf_fieldset {
         # no changes needed, "fieldset open" already indicated
     } else {
         if { $__fieldset_open_list_exists } {
-            lappend __form_ids_fieldset_open_list $id
+            lappend __form_ids_fieldset_open_list $attributes_arr(id)
         } else {
-            set __form_ids_fieldset_open_list [list $id]
+            set __form_ids_fieldset_open_list [list $attributes_arr(id)]
         }
     }
     # set results  __form_arr, we checked form id above.
-    append __form_arr($id) "$tag_html\n"
+    append __form_arr($attributes_arr(id)) "$tag_html\n"
 
 }
 
@@ -275,8 +272,8 @@ ad_proc -public qf_textarea {
     set attributes_full_list [list value accesskey align class cols id name readonly rows style tabindex title wrap]
     set arg_list [list $arg1 $arg2 $arg3 $arg4 $arg5 $arg6 $arg7 $arg8 $arg9 $arg10 $arg11 $arg12 $arg13 $arg14 $arg15 $arg16 $arg17 $arg18 $arg19 $arg20 $arg21 $arg22 $arg23 $arg24 $arg25 $arg26]
     set arrtibutes_list [list]
-    foreach {attribute value} {
-        set attribute_index [lsearch -exact $arg_list $attribute]
+    foreach {attribute value} $arg_list {
+        set attribute_index [lsearch -exact $attributes_full_list $attribute]
         if { $attriubte_index > -1 } {
             set attributes_arr($attribute) $value
             lappend attributes_list $attribute
@@ -292,17 +289,17 @@ ad_proc -public qf_textarea {
         ns_log Error "qf_textarea: invoked before qf_form or used in a different namespace than qf_form.."
     }
     # default to last modified form id
-    if { $id eq "" } { 
+    if { ![info exists attributes_arr(id)] || $attributes_arr(id) eq "" } { 
         set id $__qf_arr(form_id) 
     }
-    if { [lsearch $__form_ids_list $id] == -1 } {
-        ns_log Error "qf_textarea: unknown form id $id"
+    if { [lsearch $__form_ids_list $attributes_arr(id)] == -1 } {
+        ns_log Error "qf_textarea: unknown form id $attributes_arr(id)"
     }
 
     # use previous tag attribute values?
     if { $__qf_remember_attributes } {
         foreach attribute $attributes_list {
-            if { $attribute ne "id" && $attribute ne "value" && $attributes_arr($attribute) eq "" && [info exists __qf_arr(textarea_$attribute)] } {
+            if { $attribute ne "id" && $attribute ne "value" && ![info exists attributes_arr($attribute)] && [info exists __qf_arr(textarea_$attribute)] } {
                 set attriubtes_arr($attribute) $__qf_arr(textarea_$attribute)
             }
         }
@@ -313,15 +310,12 @@ ad_proc -public qf_textarea {
     foreach attribute $attributes_list {
         if { $attribute ne value } {
             set __qf_arr(textarea_$attribute) $attributes_arr($attribute)
-            # if a form tag requires an attribute, the following test needs to  be forced true
-            if { $attributes_arr($attribute) ne "" } {
-                lappend tag_attributes_list $attribute $attributes_arr($attribute)
-            }
+            lappend tag_attributes_list $attribute $attributes_arr($attribute)
         } 
     }
     set tag_html "<textarea[qf_insert_attributes $tag_attributes_list]>$value</textarea>"
     # set results  __form_arr, we checked form id above.
-    append __form_arr($id) "${tag_html}\n"
+    append __form_arr($attributes_arr(id)) "${tag_html}\n"
      
 }
 
@@ -360,8 +354,8 @@ ad_proc -public qf_select {
     set attributes_full_list [list value accesskey align class cols id name readonly rows style tabindex title wrap]
     set arg_list [list $arg1 $arg2 $arg3 $arg4 $arg5 $arg6 $arg7 $arg8 $arg9 $arg10 $arg11 $arg12 $arg13 $arg14 $arg15 $arg16 $arg17 $arg18 $arg19 $arg20 $arg21 $arg22]
     set arrtibutes_list [list]
-    foreach {attribute value} {
-        set attribute_index [lsearch -exact $arg_list $attribute]
+    foreach {attribute value} $arg_list {
+        set attribute_index [lsearch -exact $attributes_full_list $attribute]
         if { $attriubte_index > -1 } {
             set attributes_arr($attribute) $value
             lappend attributes_list $attribute
@@ -377,17 +371,17 @@ ad_proc -public qf_select {
         ns_log Error "qf_select: invoked before qf_form or used in a different namespace than qf_form.."
     }
     # default to last modified form id
-    if { $id eq "" } { 
+    if { ![info exists attributes_arr(id)] || $attributes_arr(id) eq "" } { 
         set id $__qf_arr(form_id) 
     }
-    if { [lsearch $__form_ids_list $id] == -1 } {
-        ns_log Error "qf_select: unknown form id $id"
+    if { [lsearch $__form_ids_list $attributes_arr(id)] == -1 } {
+        ns_log Error "qf_select: unknown form id $attributes_arr(id)"
     }
 
     # use previous tag attribute values?
     if { $__qf_remember_attributes } {
         foreach attribute $attributes_list {
-            if { $attribute ne "id" && $attribute ne "value" && $attributes_arr($attribute) eq "" && [info exists __qf_arr(select_$attribute)] } {
+            if { $attribute ne "id" && $attribute ne "value" && ![info exists attributes_arr($attribute)] && [info exists __qf_arr(select_$attribute)] } {
                 set attriubtes_arr($attribute) $__qf_arr(select_$attribute)
             }
         }
@@ -398,15 +392,12 @@ ad_proc -public qf_select {
     foreach attribute $attributes_list {
         if { $attribute ne value } {
             set __qf_arr(select_$attribute) $attributes_arr($attribute)
-            # if a form tag requires an attribute, the following test needs to  be forced true
-            if { $attributes_arr($attribute) ne "" } {
-                lappend tag_attributes_list $attribute $attributes_arr($attribute)
-            }
+            lappend tag_attributes_list $attribute $attributes_arr($attribute)
         } 
     }
     set tag_html "<select[qf_insert_attributes $tag_attributes_list]>$value_list_html</select>"
     # set results  __form_arr, we checked form id above.
-    append __form_arr($id) "${tag_html}\n"
+    append __form_arr($attributes_arr(id)) "${tag_html}\n"
 
 }
 
@@ -422,8 +413,8 @@ ad_proc -public qf_close {
     set attributes_full_list [list id]
     set arg_list [list $arg1]
     set arrtibutes_list [list]
-    foreach {attribute value} {
-        set attribute_index [lsearch -exact $arg_list $attribute]
+    foreach {attribute value} $arg_list {
+        set attribute_index [lsearch -exact $attributes_full_list $attribute]
         if { $attriubte_index > -1 } {
             set attributes_arr($attribute) $value
             lappend attributes_list $attribute
