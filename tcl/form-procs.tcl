@@ -62,23 +62,47 @@ ad_proc -public qf_remember_attributes {
 }
 
 ad_proc -public qf_open { 
-    {-action ""}
-    {-class ""}
-    {-id ""}
-    {-method "post"}
-    {-name ""}
-    {-style ""}
-    {-target ""}
-    {-title ""}
+    {arg1 ""}
+    {arg2 ""}
+    {arg3 ""}
+    {arg4 ""}
+    {arg5 ""}
+    {arg6 ""}
+    {arg7 ""}
+    {arg8 ""}
+    {arg9 ""}
+    {arg10 ""}
+    {arg11 ""}
+    {arg12 ""}
+    {arg13 ""}
+    {arg14 ""}
+    {arg15 ""}
+    {arg16 ""}
+
 } {
     initiates a form with form tag and supplied attributes. Returns an id. A clumsy url based id is provided if not passed (not recommended).
 } {
-    set attributes_list [list action class id method name style target title]
-    array set attributes_arr [list action $action class $class id $id method $method name $name style $style target $target title $title]
     # use upvar to set form content, set/change defaults
     # __qf_arr contains last attribute values of tag, indexed by {tag}_attribute, __form_last_id is in __qf_arr(form_id)
     upvar __form_ids_list __form_ids_list, __form_arr __form_arr
     upvar __qf_remember_attributes __qf_remember_attributes, __qf_arr __qf_arr
+
+    set attributes_full_list [list action class id method name style target title]
+    set arg_list [list $arg1 $arg2 $arg3 $arg4 $arg5 $arg6 $arg7 $arg8 $arg9 $arg10 $arg11 $arg12 $arg13 $arg14 $arg15 $arg16]
+    set arrtibutes_list [list]
+    foreach {attribute value} {
+        set attribute_index [lsearch -exact $arg_list $attribute]
+        if { $attriubte_index > -1 } {
+            set attributes_arr($attribute) $value
+            lappend attributes_list $attribute
+        } else {
+            ns_log Error "qf_open: $attribute is not a valid attribute. invoke with attribute value pairs. Separate each with a space."
+        }
+    }
+    if { [info exists attributes_arr(method)] && $attributes_arr(method) eq "" } {
+        set attributes_arr(method) "post"
+    }
+
     if { ![info exists __qf_remember_attributes] } {
         set __qf_remember_attributes 0
     }
@@ -90,7 +114,7 @@ ad_proc -public qf_open {
         foreach attribute $attributes_list {
             if { $attribute ne "id" && $attributes_arr($attribute) eq "" && [info exists __qf_arr(form_$attribute)] } {
                 set attriubtes_arr($attribute) $__qf_arr(form_$attribute)
-            }
+            } 
         }
     }
     # every form gets an id, if only to help identify it in debugging
@@ -119,22 +143,40 @@ ad_proc -public qf_open {
 
 
 ad_proc -public qf_fieldset { 
-    {-id ""}
-    {-align ""}
-    {-class ""}
-    {-sytle ""}
-    {-title ""}
-    {-valign ""}
+    {arg1 ""}
+    {arg2 ""}
+    {arg3 ""}
+    {arg4 ""}
+    {arg5 ""}
+    {arg6 ""}
+    {arg7 ""}
+    {arg8 ""}
+    {arg9 ""}
+    {arg10 ""}
+    {arg11 ""}
+    {arg12 ""}
 } {
     starts a form fieldset by appending a fieldset tag.  Fieldset closes when form closed or another fieldset defined in same form.
 } {
-    set attributes_list [list align class id style title valign]
-    array set attributes_arr [list align $align class $class id $id style $style title $title valign $valign]
     # use upvar to set form content, set/change defaults
     # __qf_arr contains last attribute values of tag, indexed by {tag}_attribute, __form_last_id is in __qf_arr(form_id)
     upvar __form_ids_list __form_ids_list, __form_arr __form_arr
     upvar __qf_remember_attributes __qf_remember_attributes, __qf_arr __qf_arr
     upvar __form_ids_fieldset_open_list __form_ids_fieldset_open_list
+
+    set attributes_full_list [list align class id style title valign]
+    set arg_list [list $arg1 $arg2 $arg3 $arg4 $arg5 $arg6 $arg7 $arg8 $arg9 $arg10 $arg11 $arg12]
+    set arrtibutes_list [list]
+    foreach {attribute value} {
+        set attribute_index [lsearch -exact $arg_list $attribute]
+        if { $attriubte_index > -1 } {
+            set attributes_arr($attribute) $value
+            lappend attributes_list $attribute
+        } else {
+            ns_log Error "qf_fieldset: $attribute is not a valid attribute. invoke with attribute value pairs. Separate each with a space."
+        }
+    }
+
     if { ![info exists __qf_remember_attributes] } {
         ns_log Error "qf_fieldset: invoked before qf_form or used in a different namespace than qf_form.."
     }
@@ -195,29 +237,54 @@ ad_proc -public qf_fieldset {
 }
 
 ad_proc -public qf_textarea { 
-    {-value ""}
-    {-accesskey ""}
-    {-align ""}
-    {-cols ""}
-    {-class ""}
-    {-id ""}
-    {-name ""}
-    {-readonly ""}
-    {-rows ""}
-    {-style ""}
-    {-tabindex ""}
-    {-title ""}
-    {-wrap ""}
+    {arg1 ""}
+    {arg2 ""}
+    {arg3 ""}
+    {arg4 ""}
+    {arg5 ""}
+    {arg6 ""}
+    {arg7 ""}
+    {arg8 ""}
+    {arg9 ""}
+    {arg10 ""}
+    {arg11 ""}
+    {arg12 ""}
+    {arg13 ""}
+    {arg14 ""}
+    {arg15 ""}
+    {arg16 ""}
+    {arg17 ""}
+    {arg18 ""}
+    {arg19 ""}
+    {arg20 ""}
+    {arg21 ""}
+    {arg22 ""}
+    {arg23 ""}
+    {arg24 ""}
+    {arg25 ""}
+    {arg26 ""}
 } {
     creates a form textarea tag, supplying attributes where nonempty values are supplied.
 } {
-    set attributes_list [list value accesskey align class cols id name readonly rows style tabindex title wrap]
-    array set attributes_arr [list value $value accesskey $accesskey align $align class $class cols $cols id $id name $name readonly $readonly style $style tabindex $tabindex title $title wrap $wrap]
     # use upvar to set form content, set/change defaults
     # __qf_arr contains last attribute values of tag, indexed by {tag}_attribute, __form_last_id is in __qf_arr(form_id)
     upvar __form_ids_list __form_ids_list, __form_arr __form_arr
     upvar __qf_remember_attributes __qf_remember_attributes, __qf_arr __qf_arr
     upvar __form_ids_fieldset_open_list __form_ids_fieldset_open_list
+
+    set attributes_full_list [list value accesskey align class cols id name readonly rows style tabindex title wrap]
+    set arg_list [list $arg1 $arg2 $arg3 $arg4 $arg5 $arg6 $arg7 $arg8 $arg9 $arg10 $arg11 $arg12 $arg13 $arg14 $arg15 $arg16 $arg17 $arg18 $arg19 $arg20 $arg21 $arg22 $arg23 $arg24 $arg25 $arg26]
+    set arrtibutes_list [list]
+    foreach {attribute value} {
+        set attribute_index [lsearch -exact $arg_list $attribute]
+        if { $attriubte_index > -1 } {
+            set attributes_arr($attribute) $value
+            lappend attributes_list $attribute
+        } else {
+            ns_log Error "qf_textarea: $attribute is not a valid attribute. invoke with attribute value pairs. Separate each with a space."
+        }
+    }
+
     if { ![info exists __qf_remember_attributes] } {
         ns_log Error "qf_textarea: invoked before qf_form or used in a different namespace than qf_form.."
     }
@@ -259,31 +326,112 @@ ad_proc -public qf_textarea {
 }
 
 ad_proc -public qf_select { 
-    {-value_name_list ""}
-    {-selected ""}
-    {-accesskey ""}
-    {-align ""}
-    {-class ""}
-    {-id ""}
-    {-multiple ""}
-    {-name ""}
-    {-size ""}
-    {-style ""}
-    {-tabindex ""}
+    {arg1 ""}
+    {arg2 ""}
+    {arg3 ""}
+    {arg4 ""}
+    {arg5 ""}
+    {arg6 ""}
+    {arg7 ""}
+    {arg8 ""}
+    {arg9 ""}
+    {arg10 ""}
+    {arg11 ""}
+    {arg12 ""}
+    {arg13 ""}
+    {arg14 ""}
+    {arg15 ""}
+    {arg16 ""}
+    {arg17 ""}
+    {arg18 ""}
+    {arg19 ""}
+    {arg20 ""}
+    {arg21 ""}
+    {arg22 ""}
 } {
     creates a form select/options tag, supplying attributes where nonempty values are supplied. set multiple to 1 to activate.
 } {
-# use upvar to set form content, set/change defaults
-    return 
+    # use upvar to set form content, set/change defaults
+    # __qf_arr contains last attribute values of tag, indexed by {tag}_attribute, __form_last_id is in __qf_arr(form_id)
+    upvar __form_ids_list __form_ids_list, __form_arr __form_arr
+    upvar __qf_remember_attributes __qf_remember_attributes, __qf_arr __qf_arr
+    upvar __form_ids_fieldset_open_list __form_ids_fieldset_open_list
+
+    set attributes_full_list [list value accesskey align class cols id name readonly rows style tabindex title wrap]
+    set arg_list [list $arg1 $arg2 $arg3 $arg4 $arg5 $arg6 $arg7 $arg8 $arg9 $arg10 $arg11 $arg12 $arg13 $arg14 $arg15 $arg16 $arg17 $arg18 $arg19 $arg20 $arg21 $arg22]
+    set arrtibutes_list [list]
+    foreach {attribute value} {
+        set attribute_index [lsearch -exact $arg_list $attribute]
+        if { $attriubte_index > -1 } {
+            set attributes_arr($attribute) $value
+            lappend attributes_list $attribute
+        } else {
+            ns_log Error "qf_select: [string range $attribute 0 15] is not a valid attribute. invoke with attribute value pairs. Separate each with a space."
+        }
+    }
+
+    if { ![info exists __qf_remember_attributes] } {
+        ns_log Error "qf_select: invoked before qf_form or used in a different namespace than qf_form.."
+    }
+    if { ![info exists __form_ids_list] } {
+        ns_log Error "qf_select: invoked before qf_form or used in a different namespace than qf_form.."
+    }
+    # default to last modified form id
+    if { $id eq "" } { 
+        set id $__qf_arr(form_id) 
+    }
+    if { [lsearch $__form_ids_list $id] == -1 } {
+        ns_log Error "qf_select: unknown form id $id"
+    }
+
+    # use previous tag attribute values?
+    if { $__qf_remember_attributes } {
+        foreach attribute $attributes_list {
+            if { $attribute ne "id" && $attribute ne "value" && $attributes_arr($attribute) eq "" && [info exists __qf_arr(select_$attribute)] } {
+                set attriubtes_arr($attribute) $__qf_arr(select_$attribute)
+            }
+        }
+    }
+
+    # prepare attributes to process
+    set tag_attributes_list [list]
+    foreach attribute $attributes_list {
+        if { $attribute ne value } {
+            set __qf_arr(select_$attribute) $attributes_arr($attribute)
+            # if a form tag requires an attribute, the following test needs to  be forced true
+            if { $attributes_arr($attribute) ne "" } {
+                lappend tag_attributes_list $attribute $attributes_arr($attribute)
+            }
+        } 
+    }
+    set tag_html "<select[qf_insert_attributes $tag_attributes_list]>$value_list_html</select>"
+    # set results  __form_arr, we checked form id above.
+    append __form_arr($id) "${tag_html}\n"
+
 }
 
 
 ad_proc -public qf_close { 
-    {-id ""}
+    {arg1 ""}
+    {arg2 ""}
 } {
-    closes a form by appending a close form tag. if id supplied, only closes that referenced form and any fieldsets associated with it.  
+    closes a form by appending a close form tag (and fieldset tag if any are open). if id supplied, only closes that referenced form and any fieldsets associated with it.  
 } {
 # use upvar to set form content, set/change defaults
+
+    set attributes_full_list [list id]
+    set arg_list [list $arg1]
+    set arrtibutes_list [list]
+    foreach {attribute value} {
+        set attribute_index [lsearch -exact $arg_list $attribute]
+        if { $attriubte_index > -1 } {
+            set attributes_arr($attribute) $value
+            lappend attributes_list $attribute
+        } else {
+            ns_log Error "qf_close: $attribute is not a valid attribute. invoke with attribute value pairs. Separate each with a space."
+        }
+    }
+
     return 
 }
 
