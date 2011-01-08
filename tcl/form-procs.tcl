@@ -85,6 +85,7 @@ ad_proc -public qf_open {
     # use upvar to set form content, set/change defaults
     # __qf_arr contains last attribute values of tag, indexed by {tag}_attribute, __form_last_id is in __qf_arr(form_id)
     upvar __form_ids_list __form_ids_list, __form_arr __form_arr
+    upvar __form_ids_open_list __form_ids_open_list
     upvar __qf_remember_attributes __qf_remember_attributes, __qf_arr __qf_arr
 
     set attributes_full_list [list action class id method name style target title]
@@ -108,6 +109,9 @@ ad_proc -public qf_open {
     }
     if { ![info exists __form_ids_list] } {
         set __form_ids_list [list]
+    }
+    if { ![info exists __form_ids_open_list] } {
+        set __form_ids_open_list [list]
     }
     # use previous tag attribute values?
     if { $__qf_remember_attributes } {
@@ -135,8 +139,12 @@ ad_proc -public qf_open {
     set tag_html "<form[qf_insert_attributes $tag_attributes_list]>"
     # set results  __form_arr 
     append __form_arr($id) "$tag_html\n"
-    if { [lsearch $__form_ids_list $id] == -1 } {
-        lappend __form_ids_list $id
+    if { [lsearch $__form_ids_list $attributes_arr(id)] == -1 } {
+        lappend __form_ids_list $attributes_arr(id)
+
+    }
+    if { [lsearch $__form_ids_open_list $attributes_arr(id)] == -1 } {
+        lappend __form_ids_open_list $attributes_arr(id)
     }
     return $attributes_arr(id)
 }
@@ -184,7 +192,7 @@ ad_proc -public qf_fieldset {
         ns_log Error "qf_fieldset: invoked before qf_form or used in a different namespace than qf_form.."
     }
     # default to last modified form id
-    if { ![info exists attributes_arr(i)] || $attributes_arr(id) eq "" } { 
+    if { ![info exists attributes_arr(id)] || $attributes_arr(id) eq "" } { 
         set attributes_arr(id) $__qf_arr(form_id) 
     }
     if { [lsearch $__form_ids_list $attributes_arr(id)] == -1 } {
@@ -395,12 +403,28 @@ ad_proc -public qf_select {
             lappend tag_attributes_list $attribute $attributes_arr($attribute)
         } 
     }
+
+# call qf_options
+
     set tag_html "<select[qf_insert_attributes $tag_attributes_list]>$value_list_html</select>"
     # set results  __form_arr, we checked form id above.
     append __form_arr($attributes_arr(id)) "${tag_html}\n"
 
 }
 
+ad_proc -public qf_options {
+    {arg1 ""}
+    {arg2 ""}
+    {arg3 ""}
+    {arg4 ""}
+} {
+} {
+   creates the sequence of options tags usually associated with select tag
+} {
+    upvar __form_arr __form_arr, __qf_arr __qf_arr
+
+
+}
 
 ad_proc -public qf_close { 
     {arg1 ""}
@@ -408,10 +432,13 @@ ad_proc -public qf_close {
 } {
     closes a form by appending a close form tag (and fieldset tag if any are open). if id supplied, only closes that referenced form and any fieldsets associated with it.  
 } {
-# use upvar to set form content, set/change defaults
+    # use upvar to set form content, set/change defaults
+    upvar __form_ids_list __form_ids_list, __form_arr __form_arr
+    upvar __form_ids_open_list __form_ids_open_list
+    upvar __form_ids_fieldset_open_list __form_ids_fieldset_open_list
 
     set attributes_full_list [list id]
-    set arg_list [list $arg1]
+    set arg_list [list $arg1 $arg2]
     set arrtibutes_list [list]
     foreach {attribute value} $arg_list {
         set attribute_index [lsearch -exact $attributes_full_list $attribute]
@@ -423,7 +450,33 @@ ad_proc -public qf_close {
         }
     }
 
-    return 
+    if { ![info exists __form_ids_list] } {
+        ns_log Error "qf_close: invoked before qf_form or used in a different namespace than qf_form.."
+    }
+    # default to all open ids
+    if { ![info exists attributes_arr(id)] || $attributes_arr(id) eq "" } { 
+        set attributes_arr(id) $__form_ids_open_list
+    }
+    # attributes_arr(id) might be a list or a single value. Following loop should work either way.
+
+    # close chosen id(s) 
+    foreach id $attributes_arr(id) {
+        # check if id is valid
+        if {  [lsearch $__form_ids_list $attributes_arr(id)] == -1 } {
+            ns_log Warning "qf_close: unknown form id $attributes_arr(id)"
+        } else {
+            # close fieldset tag if form has an open one.
+            if { [lsearch $__form_ids_fieldset_open_list $id] > -1 } {
+                append __form_arr($id) "</fieldset>\n"
+ # remove id from __form_ids_fieldset_open_list
+            }
+            # close form
+            append __form_arr($id) "</form>\n"    
+ # remove id from __form_ids_open_list            
+        }
+
+    }
+
 }
 
 ad_proc -public qf_read { 
