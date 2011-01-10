@@ -351,13 +351,15 @@ ad_proc -public qf_select {
     {arg21 ""}
     {arg22 ""}
 } {
-    creates a form select/options tag, supplying attributes where nonempty values are supplied. set multiple to 1 to activate.
+    creates a form select/options tag, supplying attributes where nonempty values are supplied. set multiple to 1 to activate multiple attribute.
+    "value" argument is a list_of_lists passed to qf_options, where the list_of_lists represents a list of OPTION tag attribute/value pairs. 
+    Alternate to passing "value", you can pass pure html containing literal Option tags as "value_html"
 } {
     # use upvar to set form content, set/change defaults
     # __qf_arr contains last attribute values of tag, indexed by {tag}_attribute, __form_last_id is in __qf_arr(form_id)
     upvar __form_ids_list __form_ids_list, __form_arr __form_arr
     upvar __qf_remember_attributes __qf_remember_attributes, __qf_arr __qf_arr
-    upvar __form_ids_fieldset_open_list __form_ids_fieldset_open_list
+    upvar __form_ids_select_open_list __form_ids_select_open_list
 
     set attributes_full_list [list value accesskey align class cols id name readonly rows style tabindex title wrap]
     set arg_list [list $arg1 $arg2 $arg3 $arg4 $arg5 $arg6 $arg7 $arg8 $arg9 $arg10 $arg11 $arg12 $arg13 $arg14 $arg15 $arg16 $arg17 $arg18 $arg19 $arg20 $arg21 $arg22]
@@ -404,27 +406,118 @@ ad_proc -public qf_select {
         } 
     }
 
-# call qf_options
 
-    set tag_html "<select[qf_insert_attributes $tag_attributes_list]>$value_list_html</select>"
+    set tag_html ""
+    set previous_select 0
+    # first close any existing selects tag with form id
+    set __select_open_list_exists [info exists __form_ids_select_open_list]
+    if { $__select_open_list_exists } {
+        if { [lsearch $__form_ids_select_open_list $attributes_arr(id)] > -1 } {
+            append tag_html "</select>\n"
+            set previous_select 1
+        }
+    }
+    # set results __form_ids_select_open_list
+    if { $previous_select } {
+        # no changes needed, "select open" already indicated
+    } else {
+        if { $__select_open_list_exists } {
+            lappend __form_ids_select_open_list $attributes_arr(id)
+        } else {
+            set __form_ids_select_open_list [list $attributes_arr(id)]
+        }
+    }
+
+    # add options tag
+    if { [info exists attributes_arr(value_html)] } {
+        set value_list_html $attributes_arr(value_html)
+    } else {
+        set value_list_html ""
+    }
+    if { [info exists attributes_arr(value)] } {
+        append value_list_html [qf_options $attributes_arr(value)]
+    }
+
+    append tag_html "<select[qf_insert_attributes $tag_attributes_list]>$value_list_html"
     # set results  __form_arr, we checked form id above.
     append __form_arr($attributes_arr(id)) "${tag_html}\n"
 
 }
 
-ad_proc -public qf_options {
-    {arg1 ""}
-    {arg2 ""}
-    {arg3 ""}
-    {arg4 ""}
+ad_proc -private qf_options {
+    {options_list_of_lists ""}
 } {
+    Returns the sequence of options tags usually associated with SELECT tag. 
+    Does not append to an open form. These results are usually passed to qf_select that appends an open form.
+    Option tags are added in sequentail order. A blank list in a list_of_lists is ignored. 
+    To add a blank option, include the value attribute with a blank/empty value; 
+    The option tag will wrap an attribute called "name".  
+    To indicate "SELECTED" attribute, include the attribute selected with the paired value of 1.
 } {
-   creates the sequence of options tags usually associated with select tag
-} {
-    upvar __form_arr __form_arr, __qf_arr __qf_arr
+    # options_list is expected to be a list like this:
+    # \[list \[list attribute1 value attribute2 value attribute3 value attribute4 value attribute5 value...\] \[list {second option tag attribute-value pairs} etc\] \]
 
+    # for this proc, we need to check the individual options for each OPTION tag, to provide the most flexibility.
+    set list_length [llength $options_list_of_lists]
+    # is this a list of lists, or just a list (1 list of list)
+    # test the second row to see if it has multiple list members
+    set multiple_option_tags_p [expr { [llength [lindex $options_list_of_lists 1] ] > 1 } ]
+    if { $list_length > 1 && $multiple_option_tags_p == 0 } {
+        # options_list is malformed, by providing only a list, not list of lists, adjust it:
+        set options_list_of_lists [list $options_list_of_lists]
+    }
 
+    set options_html ""
+    foreach option_tag_attribute_list $options_lists_of_lists {
+        append options_html [qf_option $option_tag_attribute_list]
+    }
+    return $options_html
 }
+
+ad_proc -private qf_option {
+    {option_attributes_list ""}
+} {
+    returns an OPTION tag usually associated with SELECT tag. Does not append to an open form. These results are usually passed to qf_select that appends an open form.
+    Creates only one option tag. For multiple OPTION tags, see qf_options
+    To add a blank attribute, include attribute with a blank/empty value; 
+    The option tag will wrap an attribute called "name".  
+    To indicate "SELECTED" attribute, include the attribute selected with the paired value of 1.
+} {
+
+    set attributes_full_list [list class dir disabled id label lang language selected style title value name]
+    set arg_list $option_attributes_list
+    set arrtibutes_list [list]
+    foreach {attribute value} $arg_list {
+        set attribute_index [lsearch -exact $attributes_full_list $attribute]
+        if { $attriubte_index > -1 } {
+            set attributes_arr($attribute) $value
+            lappend attributes_list $attribute
+        } else {
+            ns_log Error "qf_options: $attribute is not a valid attribute. invoke with attribute value pairs. Separate each with a space."
+        }
+    }
+
+    # prepare attributes to process
+    set tag_attributes_list [list]
+    foreach attribute $attributes_list {
+        if { $attribute ne name && $attribute ne selected } {
+            lappend tag_attributes_list $attribute $attributes_arr($attribute)
+        } 
+    }
+
+    if { [info exists attributes_arr(name)] } {
+        set name_html $attributes_arr(name)
+    } else {
+        set name_html ""
+    }
+    if { [info exists attributes_arr(selected)] && $attributes_arr(selected) == 1 } {
+        set option_html "<option[qf_insert_attributes $tag_attributes_list] selected>$name_html</option>\n"
+    } else {
+        set option_html "<option[qf_insert_attributes $tag_attributes_list]>$name_html</option>\n"
+    }
+    return $option_html
+}
+
 
 ad_proc -public qf_close { 
     {arg1 ""}
@@ -462,17 +555,22 @@ ad_proc -public qf_close {
     # close chosen id(s) 
     foreach id $attributes_arr(id) {
         # check if id is valid
-        if {  [lsearch $__form_ids_list $attributes_arr(id)] == -1 } {
+            set form_id_position [lsearch $__form_ids_list $attributes_arr(id)]
+        if { $form_id_position == -1 } {
             ns_log Warning "qf_close: unknown form id $attributes_arr(id)"
         } else {
             # close fieldset tag if form has an open one.
-            if { [lsearch $__form_ids_fieldset_open_list $id] > -1 } {
+            set form_id_fs_position [lsearch $__form_ids_fieldset_open_list $id]
+            if { $form_id_fs_position > -1 } {
                 append __form_arr($id) "</fieldset>\n"
- # remove id from __form_ids_fieldset_open_list
+                # remove id from __form_ids_fieldset_open_list
+                set __form_ids_fieldset_open_list [lreplace $__form_ids_fieldset_open_list $form_id_fs_position $form_id_fs_position]
             }
             # close form
             append __form_arr($id) "</form>\n"    
- # remove id from __form_ids_open_list            
+            # remove id from __form_ids_open_list            
+            set __form_ids_open_list [lreplace $__form_ids_open_list $form_id_position $form_id_position]
+
         }
 
     }
@@ -545,12 +643,14 @@ ad_proc -private qf_insert_attributes {
  } {
     returns args_list of tag attribute pairs (attribute,value) as html to be inserted into a tag
  } {
-     set html ""
+     set args_html ""
      foreach {attribute value} $args_list {
          if { [string range $attribute 1 1] eq "-" } {
              set $attribute [string range $attribute 2 end]
          }
-         append html " $attribute=$value"
+         regsub {[^\\]"} $value {\"} value
+         # " clearing quote in previous line to fix emacs color rendering error.
+         append args_html " $attribute=\"$value\""
      }
-     return $html
+     return $args_html
  }
