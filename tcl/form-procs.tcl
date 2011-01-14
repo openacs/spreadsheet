@@ -18,6 +18,11 @@ ad_library {
 
 # to fix:  id for not form tag should not be same as form id. add an attribute -form_id for assigning tags to specific forms.
 
+#use following to limit access to page requests via post.. to reduce vulnerability to url hack and insertion attacks from web:
+#if { [ad_conn method] != POST } {
+#  ad_script_abort
+#}
+#also see patch: http://openacs.org/forums/message-view?message_id=182057
 
 ad_proc -public qf_get_inputs_as_array {
     {form_array_name "__form_input_arr"}
@@ -580,6 +585,7 @@ ad_proc -public qf_close {
 ad_proc -public qf_read { 
     {-id ""}
 } {
+
     returns the content of forms. If the form is not closed, returns the form in its partial state of completeness. If an id is supplied, returns the content of a specific form.
 } {
 # use upvar to set form content, set/change defaults
@@ -587,54 +593,138 @@ ad_proc -public qf_read {
 }
 
 
-ad_proc -public qf_button {
-    {-type ""}
-    {-accesskey ""}
-    {-class ""}
-    {-id ""}
-    {-name ""}
-    {-tabindex ""}
-    {-title ""}
-    {-value ""}
-} {
-    creates a form button tag, supplying attributes where nonempty values are supplied.
-} {
-
-# use upvar to set form content, set/change defaults
-    return 
-}
-
 ad_proc -public qf_input {
-    {-type ""}
-    {-accesskey ""}
-    {-align ""}
-    {-alt ""}
-    {-border ""}
-    {-checked ""}
-    {-class ""}
-    {-id ""}
-    {-maxlength ""}
-    {-name ""}
-    {-readonly ""}
-    {-size ""}
-    {-src ""}
-    {-tabindex ""}
-    {-value ""}
+    {arg1 ""}
+    {arg2 ""}
+    {arg3 ""}
+    {arg4 ""}
+    {arg5 ""}
+    {arg6 ""}
+    {arg7 ""}
+    {arg8 ""}
+    {arg9 ""}
+    {arg10 ""}
+    {arg11 ""}
+    {arg12 ""}
+    {arg13 ""}
+    {arg14 ""}
+    {arg15 ""}
+    {arg16 ""}
+    {arg17 ""}
+    {arg18 ""}
+    {arg19 ""}
+    {arg20 ""}
+    {arg21 ""}
+    {arg22 ""}
+    {arg23 ""}
+    {arg24 ""}
+    {arg25 ""}
+    {arg26 ""}
+    {arg27 ""}
+    {arg28 ""}
+    {arg29 ""}
+    {arg30 ""}
+    {arg31 ""}
+    {arg32 ""}
 } {
     creates a form input tag, supplying attributes where nonempty values are supplied. when using CHECKED, set the attribute to 1.
 } {
+    # use upvar to set form content, set/change defaults
+    # __qf_arr contains last attribute values of tag, indexed by {tag}_attribute, __form_last_id is in __qf_arr(form_id)
+    upvar __form_ids_list __form_ids_list, __form_arr __form_arr
+    upvar __qf_remember_attributes __qf_remember_attributes, __qf_arr __qf_arr
+    upvar __form_ids_fieldset_open_list __form_ids_fieldset_open_list
 
-# use upvar to set form content, set/change defaults
+    set attributes_full_list [list type accesskey align alt border checked class id maxlength name readonly size src tabindex value form_id]
+    set arg_list [list $arg1 $arg2 $arg3 $arg4 $arg5 $arg6 $arg7 $arg8 $arg9 $arg10 $arg11 $arg12 $arg13 $arg14 $arg15 $arg16 $arg17 $arg18 $arg19 $arg20 $arg21 $arg22 $arg23 $arg24 $arg25 $arg26 $arg27 $arg28 $arg29 $arg30 $arg31 $arg32]
+    set arrtibutes_list [list]
+    foreach {attribute value} $arg_list {
+        set attribute_index [lsearch -exact $attributes_full_list $attribute]
+        if { $attriubte_index > -1 } {
+            set attributes_arr($attribute) $value
+            lappend attributes_list $attribute
+        } else {
+            ns_log Error "qf_input: $attribute is not a valid attribute. invoke with attribute value pairs. Separate each with a space."
+        }
+    }
+
+    if { ![info exists __qf_remember_attributes] } {
+        ns_log Error "qf_input: invoked before qf_form or used in a different namespace than qf_form.."
+    }
+    if { ![info exists __form_ids_list] } {
+        ns_log Error "qf_input: invoked before qf_form or used in a different namespace than qf_form.."
+    }
+    # default to last modified form id
+    if { ![info exists attributes_arr(form_id)] || $attributes_arr(form_id) eq "" } { 
+        set form_id $__qf_arr(form_id) 
+    }
+    if { [lsearch $__form_ids_list $attributes_arr(form_id)] == -1 } {
+        ns_log Error "qf_input: unknown form id $attributes_arr(id)"
+    }
+
+    # use previous tag attribute values?
+    if { $__qf_remember_attributes } {
+        foreach attribute $attributes_list {
+            if { $attribute ne "id" && $attribute ne "value" && ![info exists attributes_arr($attribute)] && [info exists __qf_arr(input_$attribute)] } {
+                set attriubtes_arr($attribute) $__qf_arr(input_$attribute)
+            }
+        }
+    }
+
+    # prepare attributes to process
+    set tag_attributes_list [list]
+    foreach attribute $attributes_list {
+        if { $attribute ne value } {
+            set __qf_arr(input_$attribute) $attributes_arr($attribute)
+            lappend tag_attributes_list $attribute $attributes_arr($attribute)
+        } 
+    }
+    set tag_html "<input[qf_insert_attributes $tag_attributes_list]>$value</textarea>"
+    # set results  __form_arr, we checked form id above.
+    append __form_arr($attributes_arr(form_id)) "${tag_html}\n"
+     
     return 
 }
 
 ad_proc -public qf_insert_html { 
-    {html ""}
-    {-id ""}
+    {arg1 ""}
+    {arg2 ""}
+    {arg3 ""}
+    {arg4 ""}
 } {
-    inserts html in a form by appending supplied html. if id supplied, appends form with supplied id.
+    inserts html in a form by appending supplied html. if form_id supplied, appends form with supplied form_id.
 } {
-# use upvar to set form content, set/change defaults
+    # use upvar to set form content, set/change defaults
+    # __qf_arr contains last attribute values of tag, indexed by {tag}_attribute, __form_last_id is in __qf_arr(form_id)
+    upvar __form_ids_list __form_ids_list, __form_arr __form_arr
+    upvar __form_ids_fieldset_open_list __form_ids_fieldset_open_list
+
+    set attributes_full_list [list html form_id]
+    set arg_list [list $arg1 $arg2 $arg3 $arg4 $arg5 $arg6]
+    set arrtibutes_list [list]
+    foreach {attribute value} $arg_list {
+        set attribute_index [lsearch -exact $attributes_full_list $attribute]
+        if { $attriubte_index > -1 } {
+            set attributes_arr($attribute) $value
+            lappend attributes_list $attribute
+        } else {
+            ns_log Error "qf_insert_html: $attribute is not a valid attribute. invoke with attribute value pairs. Separate each with a space."
+        }
+    }
+
+    if { ![info exists __form_ids_list] } {
+        ns_log Error "qf_insert_html: invoked before qf_form or used in a different namespace than qf_form.."
+    }
+    # default to last modified form id
+    if { ![info exists attributes_arr(form_id)] || $attributes_arr(form_id) eq "" } { 
+        set form_id $__qf_arr(form_id) 
+    }
+    if { [lsearch $__form_ids_list $attributes_arr(form_id)] == -1 } {
+        ns_log Error "qf_insert_html: unknown form id $attributes_arr(id)"
+    }
+
+    # set results  __form_arr, we checked form id above.
+    append __form_arr($attributes_arr(form_id)) $attributes_arr(html)
     return 
 }
 
