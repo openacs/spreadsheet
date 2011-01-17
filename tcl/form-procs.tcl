@@ -41,10 +41,13 @@ ad_proc -public qf_get_inputs_as_array {
         
         # The name of the argument passed in the form
         set __form_key [ns_set key $__form $__form_counter_i]
+        # no legitimate argument should be affected by quoting:
+        set __form_key [ad_quotehtml $__form_key]
+
         # no inserting tcl commands!
         if { [regsub {[\[\]]} $__form_key "" __form_key] } {
             # let's make this an error for now, so we log any attempts
-            ns_log Error "qf_get_inputs_as_array: attempt to insert square brace to user input."
+            ns_log Error "qf_get_inputs_as_array: attempt to insert square brace to user input of '${__form_key}'."
             ad_script_abort
         }
 
@@ -763,6 +766,9 @@ ad_proc -public qf_choice {
      selected is not required, default is not selected, set selected to 1 to show selected.
      if label not provided, value is used for label.
  } {
+     # if $type = select, then items are option tags wrapped by a select tag
+     # if $type = radio, then items are input tags, wrapped in a list for now
+     # if needing to paginate radio buttons, build the radio buttons using qf_input directly.
      set args_html ""
      foreach {attribute value} $args_list {
          if { [string range $attribute 1 1] eq "-" } {
@@ -787,6 +793,9 @@ ad_proc -public qf_choices {
      selected is not required, default is not selected, set selected to 1 to show selected. 
      if label not provided, value is used for label.
  } {
+     # if $type = select, then items are option tags wrapped by a select tag
+     # if $type = checkbox, then items are input tags, wrapped in a list for now
+     # if needing to paginate checkbuttons, build the checkbox lists using qf_input directly.
      set args_html ""
      foreach {attribute value} $args_list {
          if { [string range $attribute 1 1] eq "-" } {
