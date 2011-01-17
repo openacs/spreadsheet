@@ -27,7 +27,7 @@ ad_library {
 ad_proc -public qf_get_inputs_as_array {
     {form_array_name "__form_input_arr"}
 } {
-    get inputs from form submission
+    get inputs from form submission, quotes all input values. use ad_unquotehtml to unquote a value.
 } {
     upvar $form_array_name __form_input_arr
     # get form variables passed with connection
@@ -41,9 +41,15 @@ ad_proc -public qf_get_inputs_as_array {
         
         # The name of the argument passed in the form
         set __form_key [ns_set key $__form $__form_counter_i]
+        # no inserting tcl commands!
+        if { [regsub {[\[\]]} $__form_key "" __form_key] } {
+            # let's make this an error for now, so we log any attempts
+            ns_log Error "qf_get_inputs_as_array: attempt to insert square brace to user input."
+            ad_script_abort
+        }
 
         # This is the value
-        set __form_input [ns_set value $__form $__form_counter_i]
+        set __form_input [ad_quotehtml [ns_set value $__form $__form_counter_i]]
         if { [info exists --form_input_arr($__form_key) ] } {
             if { $__form_input ne $__form_input_arr($__form_key) } {
                 # which one is correct? log error
@@ -732,6 +738,54 @@ ad_proc -private qf_insert_attributes {
     args_list
  } {
     returns args_list of tag attribute pairs (attribute,value) as html to be inserted into a tag
+ } {
+     set args_html ""
+     foreach {attribute value} $args_list {
+         if { [string range $attribute 1 1] eq "-" } {
+             set $attribute [string range $attribute 2 end]
+         }
+         regsub {[^\\]"} $value {\"} value
+         # " clearing quote in previous line to fix emacs color rendering error.
+         append args_html " $attribute=\"$value\""
+     }
+     return $args_html
+ }
+
+ad_proc -public qf_choice {
+    form_id
+    type
+    args_list_of_lists
+ } {
+    returns html of a select/option bar or radio button list (where only 1 value is returned to a posted form).
+     type is "select" for select bar, or "radio" for radio buttons
+     args_list_of_lists, each list item contains attribute/value pairs for a button or option/bar item
+     required attributes:  name, value
+     selected is not required, default is not selected, set selected to 1 to show selected.
+     if label not provided, value is used for label.
+ } {
+     set args_html ""
+     foreach {attribute value} $args_list {
+         if { [string range $attribute 1 1] eq "-" } {
+             set $attribute [string range $attribute 2 end]
+         }
+         regsub {[^\\]"} $value {\"} value
+         # " clearing quote in previous line to fix emacs color rendering error.
+         append args_html " $attribute=\"$value\""
+     }
+     return $args_html
+ }
+
+ad_proc -public qf_choices {
+    form_id
+    type
+    args_list_of_lists
+ } {
+     returns html of a multiple select/option menu or checkbox list (where multiple values can be returned to a posted form).
+     type is "select" for select menu, or "checkbox" for checkboxes
+     args_list_of_lists, each list item contains attribute/value pairs for a button or option/bar item
+     required attributes:  name, value.
+     selected is not required, default is not selected, set selected to 1 to show selected. 
+     if label not provided, value is used for label.
  } {
      set args_html ""
      foreach {attribute value} $args_list {
