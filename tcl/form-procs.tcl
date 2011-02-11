@@ -39,16 +39,15 @@ ad_proc -public qf_get_inputs_as_array {
     }
     for { set __form_counter_i 0 } { $__form_counter_i < $__form_size } { incr __form_counter_i } {
         
-        # The name of the argument passed in the form
-        set __form_key [ns_set key $__form $__form_counter_i]
-        # no legitimate argument should be affected by quoting:
-        set __form_key [ad_quotehtml $__form_key]
-
-        # no inserting tcl commands!
-        if { [regsub {[\[\]]} $__form_key "" __form_key] } {
+        # no inserting tcl commands etc!
+        if { ![regexp -nocase -- {^[a-z][a-z0-9_\.\:\(\)]*$} [ns_set key $__form $__form_counter_i]] } {
             # let's make this an error for now, so we log any attempts
-            ns_log Error "qf_get_inputs_as_array: attempt to insert square brace to user input of '${__form_key}'."
+            ns_log Error "qf_get_inputs_as_array: attempt to insert unallowed characters to user input '{__form_key}'."
             ad_script_abort
+        } else {
+            # The name of the argument passed in the form
+            # no legitimate argument should be affected by quoting:
+            set __form_key [ad_quotehtml [ns_set key $__form $__form_counter_i]]
         }
 
         # This is the value
@@ -62,8 +61,9 @@ ad_proc -public qf_get_inputs_as_array {
                 ns_log Warning "qf_get_form_input: notice, form has two keys with same info.."
             }
         } else {
-            set __form_input_arr($__form_key) [ns_set value $__form $__form_counter_i]
+            set __form_input_arr($__form_key) $__form_input
         }
+        # next key-value pair
     }
 }
 
@@ -466,7 +466,7 @@ ad_proc -private qf_options {
     Option tags are added in sequentail order. A blank list in a list_of_lists is ignored. 
     To add a blank option, include the value attribute with a blank/empty value; 
     The option tag will wrap an attribute called "name".  
-    To indicate "SELECTED" attribute, include the attribute selected with the paired value of 1.
+    To indicate "SELECTED" attribute, include the attribute "selected" with the paired value of 1.
 } {
     # options_list is expected to be a list like this:
     # \[list \[list attribute1 value attribute2 value attribute3 value attribute4 value attribute5 value...\] \[list {second option tag attribute-value pairs} etc\] \]
@@ -495,7 +495,7 @@ ad_proc -private qf_option {
     Creates only one option tag. For multiple OPTION tags, see qf_options
     To add a blank attribute, include attribute with a blank/empty value; 
     The option tag will wrap an attribute called "name".  
-    To indicate "SELECTED" attribute, include the attribute selected with the paired value of 1.
+    To indicate "SELECTED" attribute, include the attribute "selected" with the paired value of 1.
 } {
 
     set attributes_full_list [list class dir disabled id label lang language selected style title value name]
