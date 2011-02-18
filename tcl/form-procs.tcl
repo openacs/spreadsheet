@@ -102,6 +102,17 @@ ad_proc -public qf_open {
     upvar __form_ids_open_list __form_ids_open_list
     upvar __qf_remember_attributes __qf_remember_attributes, __qf_arr __qf_arr
 
+    # if proc was passed a list of parameters, parse
+    if { [llength $arg1] > 1 && [llength $arg2] == 0 } {
+        set arg1_list $arg1
+        set lposition 1
+        foreach arg $arg1_list {
+            set arg${lposition} $arg
+            incr lposition
+        }
+        unset arg1_list
+    }
+
     set attributes_full_list [list action class id method name style target title]
     set arg_list [list $arg1 $arg2 $arg3 $arg4 $arg5 $arg6 $arg7 $arg8 $arg9 $arg10 $arg11 $arg12 $arg13 $arg14 $arg15 $arg16]
     set attributes_list [list]
@@ -185,6 +196,17 @@ ad_proc -public qf_fieldset {
     upvar __form_ids_list __form_ids_list, __form_arr __form_arr
     upvar __qf_remember_attributes __qf_remember_attributes, __qf_arr __qf_arr
     upvar __form_ids_fieldset_open_list __form_ids_fieldset_open_list
+
+    # if proc was passed a list of parameters, parse
+    if { [llength $arg1] > 1 && [llength $arg2] == 0 } {
+        set arg1_list $arg1
+        set lposition 1
+        foreach arg $arg1_list {
+            set arg${lposition} $arg
+            incr lposition
+        }
+        unset arg1_list
+    }
 
     set attributes_full_list [list align class id style title valign]
     set arg_list [list $arg1 $arg2 $arg3 $arg4 $arg5 $arg6 $arg7 $arg8 $arg9 $arg10 $arg11 $arg12]
@@ -291,6 +313,17 @@ ad_proc -public qf_textarea {
     upvar __qf_remember_attributes __qf_remember_attributes, __qf_arr __qf_arr
     upvar __form_ids_fieldset_open_list __form_ids_fieldset_open_list
 
+    # if proc was passed a list of parameters, parse
+    if { [llength $arg1] > 1 && [llength $arg2] == 0 } {
+        set arg1_list $arg1
+        set lposition 1
+        foreach arg $arg1_list {
+            set arg${lposition} $arg
+            incr lposition
+        }
+        unset arg1_list
+    }
+
     set attributes_full_list [list value accesskey align class cols id name readonly rows style tabindex title wrap]
     set arg_list [list $arg1 $arg2 $arg3 $arg4 $arg5 $arg6 $arg7 $arg8 $arg9 $arg10 $arg11 $arg12 $arg13 $arg14 $arg15 $arg16 $arg17 $arg18 $arg19 $arg20 $arg21 $arg22 $arg23 $arg24 $arg25 $arg26]
     set attributes_list [list]
@@ -375,6 +408,17 @@ ad_proc -public qf_select {
     upvar __qf_remember_attributes __qf_remember_attributes, __qf_arr __qf_arr
     upvar __form_ids_select_open_list __form_ids_select_open_list
 
+    # if proc was passed a list of parameters, parse
+    if { [llength $arg1] > 1 && [llength $arg2] == 0 } {
+        set arg1_list $arg1
+        set lposition 1
+        foreach arg $arg1_list {
+            set arg${lposition} $arg
+            incr lposition
+        }
+        unset arg1_list
+    }
+
     set attributes_full_list [list value accesskey align class cols id name readonly rows style tabindex title wrap]
     set arg_list [list $arg1 $arg2 $arg3 $arg4 $arg5 $arg6 $arg7 $arg8 $arg9 $arg10 $arg11 $arg12 $arg13 $arg14 $arg15 $arg16 $arg17 $arg18 $arg19 $arg20 $arg21 $arg22]
     set attributes_list [list]
@@ -384,10 +428,7 @@ ad_proc -public qf_select {
             set attributes_arr($attribute) $value
             lappend attributes_list $attribute
         } else {
-            # ignore warnings stemming from extra attributes passed via qf_option(s)
-            if { $attribute ne "type" && $attribute ne "form_id" } {
-            ns_log Warning "qf_select: [ad_quotehtml [string range $attribute 0 15]] is not a valid attribute. invoke with attribute value pairs. Separate each with a space."
-            }
+            ns_log Error "qf_select: [ad_quotehtml [string range $attribute 0 15]] is not a valid attribute. invoke with attribute value pairs. Separate each with a space."
         }
     }
 
@@ -801,15 +842,26 @@ ad_proc -public qf_choice {
     set attributes_full_list [list value accesskey align class cols id name readonly rows style tabindex title wrap type form_id]
     set arg_list [list $arg1 $arg2 $arg3 $arg4 $arg5 $arg6 $arg7 $arg8 $arg9 $arg10 $arg11 $arg12 $arg13 $arg14 $arg15 $arg16 $arg17 $arg18 $arg19 $arg20 $arg21 $arg22 $arg23 $arg24]
     set attributes_list [list]
+    set select_list [list]
     foreach {attribute value} $arg_list {
         set attribute_index [lsearch -exact $attributes_full_list $attribute]
         if { $attribute_index > -1 } {
             set attributes_arr($attribute) $value
             lappend attributes_list $attribute
+            if { $attribute ne "type" && $attribute ne "form_id" && $attribute ne "id" } {
+                # create a list to pass to qf_select without it balking at unknown parameters
+                lappend select_list $attribute $value
+            } 
         } else {
             ns_log Error "qf_select: [string range $attribute 0 15] is not a valid attribute. invoke with attribute value pairs. Separate each with a space."
         }
     }
+    # for passing select_list, we need to change id with form_id, since we left those off, we can just add form_id as id:
+    if { [info exists $attributes_arr(form_id) ] } {
+        lappend select_list id $attributes_arr(form_id)
+    }
+    
+
     # if attributes_arr(type) = select, then items are option tags wrapped by a select tag
     # if attributes_arr(type) = radio, then items are input tags, wrapped in a list for now
     # if needing to paginate radio buttons, build the radio buttons using qf_input directly.
@@ -841,19 +893,20 @@ ad_proc -public qf_choice {
         append args_html ">\n"
         qf_insert_html $attributes_arr(form_id) $args_html
         set args_html ""
-# add radio inputs here, see qf_options for inspiration
+
         # verify this is a list of lists.
-        set list_length [llength $value]
+        set list_length [llength $attributes_arr(value)]
         # test on the second input, less chance its a special case
-        set second_input_attributes_count [llength [index $value 1]]
+        set second_input_attributes_count [llength [index $attributes_arr(value) 1]]
         if { $list_length > 1 && $second_input_attributes_count < 2 } {
             # a list was passed instead of a list of lists. Adjust..
-            set value [list $value]
+            set attributes_arr(value) [list $attributes_arr(value)]
         }
-        # check the individual attributes for each input tag
-### stopped here
-        qf_input form_id $attribute_arr(form_id) 
-
+        
+        foreach input_attributes_list $attributes_arr(value) {
+            lappend input_attributes_list form_id $attribute_arr(form_id) 
+            qf_input $input_attributes_list
+        }
 
         append args_html "</${tag_wrapping}>"
         qf_insert_html $attributes_arr(form_id) $args_html
