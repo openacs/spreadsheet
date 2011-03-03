@@ -789,7 +789,7 @@ ad_proc -private qf_insert_attributes {
      set args_html ""
      foreach {attribute value} $args_list {
          if { [string range $attribute 1 1] eq "-" } {
-             set $attribute [string range $attribute 2 end]
+             set $attribute [string range $attribute 1 end]
          }
          regsub {[^\\]"} $value {\"} value
          # " clearing quote in previous line to fix emacs color rendering error.
@@ -882,7 +882,7 @@ ad_proc -public qf_choice {
             # ignore proc parameters that are not tag attributes
             if { $attribute ne "value" } {
                 if { [string range $attribute 1 1] eq "-" } {
-                    set $attribute [string range $attribute 2 end]
+                    set $attribute [string range $attribute 1 end]
                 }
                 # quoting unquoted double quotes in attribute values, so as to not inadvertently break the tag
                 regsub {[^\\]"} $value {\"} value
@@ -918,28 +918,120 @@ ad_proc -public qf_choice {
 }
 
 ad_proc -public qf_choices {
-    form_id
-    type
-    args_list_of_lists
+    {arg1 ""}
+    {arg2 ""}
+    {arg3 ""}
+    {arg4 ""}
+    {arg5 ""}
+    {arg6 ""}
+    {arg7 ""}
+    {arg8 ""}
+    {arg9 ""}
+    {arg10 ""}
+    {arg11 ""}
+    {arg12 ""}
+    {arg13 ""}
+    {arg14 ""}
+    {arg15 ""}
+    {arg16 ""}
+    {arg17 ""}
+    {arg18 ""}
+    {arg19 ""}
+    {arg20 ""}
+    {arg21 ""}
+    {arg22 ""}
+    {arg23 ""}
+    {arg24 ""}
  } {
-     returns html of a multiple select/option menu or checkbox list (where multiple values can be returned to a posted form).
-     type is "select" for select menu, or "checkbox" for checkboxes
-     args_list_of_lists, each list item contains attribute/value pairs for a button or option/bar item
-     required attributes:  name, value.
-     selected is not required, default is not selected, set selected to 1 to show selected. 
+    returns html of a select/option bar or radio button list (where only 1 value is returned to a posted form).
+     set "type" to "select" for select bar, or "checkbox" for checkboxes
+    
+     required attributes:  name, value
+     "selected" is not required, default is not selected, set "selected" to 1 to indicate item selected.
+     if label not provided, value is used for label.
+    "value" argument is a list_of_lists, each list item contains attribute/value pairs for a radio or option/bar item
+        where the list_of_lists represents a list of OPTION tag attribute/value pairs. 
      if label not provided, value is used for label.
  } {
-     # if $type = select, then items are option tags wrapped by a select tag
-     # if $type = checkbox, then items are input tags, wrapped in a list for now
-     # if needing to paginate checkbuttons, build the checkbox lists using qf_input directly.
-     set args_html ""
-     foreach {attribute value} $args_list {
-         if { [string range $attribute 1 1] eq "-" } {
-             set $attribute [string range $attribute 2 end]
-         }
-         regsub {[^\\]"} $value {\"} value
-         # " clearing quote in previous line to fix emacs color rendering error.
-         append args_html " $attribute=\"$value\""
-     }
-     return $args_html
- }
+    # use upvar to set form content, set/change defaults
+    # __qf_arr contains last attribute values of tag, indexed by {tag}_attribute, __form_last_id is in __qf_arr(form_id)
+    upvar __form_ids_list __form_ids_list, __form_arr __form_arr
+    upvar __qf_remember_attributes __qf_remember_attributes, __qf_arr __qf_arr
+    upvar __form_ids_select_open_list __form_ids_select_open_list
+
+    set attributes_full_list [list value accesskey align class cols id name readonly rows style tabindex title wrap type form_id]
+    set arg_list [list $arg1 $arg2 $arg3 $arg4 $arg5 $arg6 $arg7 $arg8 $arg9 $arg10 $arg11 $arg12 $arg13 $arg14 $arg15 $arg16 $arg17 $arg18 $arg19 $arg20 $arg21 $arg22 $arg23 $arg24]
+    set attributes_list [list]
+    set select_list [list]
+    foreach {attribute value} $arg_list {
+        set attribute_index [lsearch -exact $attributes_full_list $attribute]
+        if { $attribute_index > -1 } {
+            set attributes_arr($attribute) $value
+            lappend attributes_list $attribute
+            if { $attribute ne "type" && $attribute ne "form_id" && $attribute ne "id" } {
+                # create a list to pass to qf_select without it balking at unknown parameters
+                lappend select_list $attribute $value
+            } 
+        } else {
+            ns_log Error "qf_select: [string range $attribute 0 15] is not a valid attribute. invoke with attribute value pairs. Separate each with a space."
+        }
+    }
+    # for passing select_list, we need to change id with form_id, since we left those off, we can just add form_id as id:
+    if { [info exists $attributes_arr(form_id) ] } {
+        lappend select_list id $attributes_arr(form_id)
+    }
+    
+
+    # if attributes_arr(type) = select, then items are option tags wrapped by a select tag
+    # if attributes_arr(type) = checkbox, then items are input tags, wrapped in a list for now
+    # if needing to paginate checkboxes, build the checkboxes using qf_input directly.
+
+    if { $attributes_arr(type) ne "checkbox" } {
+        set type "select"
+    } else {
+        set type "checkbox"
+    }
+    
+    # call qf_select if type is "select" instead of duplicating purpose of that code
+
+    if { $type eq "checkbox" } {
+        # create wrapping tag
+        set tag_wrapping "ul"
+        set args_html "<${tag_wrapping}"
+        foreach {attribute value} $args_list {
+            # ignore proc parameters that are not tag attributes
+            if { $attribute ne "value" } {
+                if { [string range $attribute 1 1] eq "-" } {
+                    set $attribute [string range $attribute 1 end]
+                }
+                # quoting unquoted double quotes in attribute values, so as to not inadvertently break the tag
+                regsub {[^\\]"} $value {\"} value
+                # using this comment to "} clear quote in previous line to fix emacs color rendering error.
+                append args_html " $attribute=\"$value\""
+            }
+        }
+        append args_html ">\n"
+        qf_insert_html $attributes_arr(form_id) $args_html
+        set args_html ""
+
+        # verify this is a list of lists.
+        set list_length [llength $attributes_arr(value)]
+        # test on the second input, less chance its a special case
+        set second_input_attributes_count [llength [index $attributes_arr(value) 1]]
+        if { $list_length > 1 && $second_input_attributes_count < 2 } {
+            # a list was passed instead of a list of lists. Adjust..
+            set attributes_arr(value) [list $attributes_arr(value)]
+        }
+        
+        foreach input_attributes_list $attributes_arr(value) {
+            lappend input_attributes_list form_id $attribute_arr(form_id) 
+            qf_input $input_attributes_list
+        }
+
+        append args_html "</${tag_wrapping}>"
+        qf_insert_html $attributes_arr(form_id) $args_html
+    } else {
+        set args_html [qf_select $arg1 $arg2 $arg3 $arg4 $arg5 $arg6 $arg7 $arg8 $arg9 $arg10 $arg11 $arg12 $arg13 $arg14 $arg15 $arg16 $arg17 $arg18 $arg19 $arg20 $arg21 $arg22 $arg23 $arg24]
+    }
+
+}    
