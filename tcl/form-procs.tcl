@@ -732,7 +732,14 @@ ad_proc -public qf_input {
             lappend tag_attributes_list $attribute $attributes_arr($attribute)
         } 
     }
-    set tag_html "<input[qf_insert_attributes $tag_attributes_list]>$value</textarea>"
+
+    # by default, wrap the input with a label tag for better UI
+    if { [info exists attributes_arr(id) ] && [info exists attributes_arr(type) ] && $attributes_arr(type) ne "hidden" } {
+        set tag_html "<label for=\"${attributes_arr(id)}\"><input[qf_insert_attributes $tag_attributes_list]>$value</label>"
+    } else {
+        set tag_html "<input[qf_insert_attributes $tag_attributes_list]>$value"
+    }
+
     # set results  __form_arr, we checked form id above.
     append __form_arr($attributes_arr(form_id)) "${tag_html}\n"
      
