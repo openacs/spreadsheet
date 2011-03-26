@@ -12,11 +12,11 @@ ad_library {
 # __form_ids_list  = list that contains existing form ids
 # __form_ids_open_list = list that contains ids of forms that are not closed
 # __form_ids_fieldset_open_list = list that contains form ids where a fieldset tag is open
-# __form_arr contains an array of forms. Each form built as a string by appending tags, indexed by form id, for example __form_arr($id)
+# __form_arr contains an array of forms. Each form built as a string by appending tags, indexed by form_id, for example __form_arr($id)
 # __qf_arr contains last attribute values of a tag (for all forms), indexed by {tag}_attribute, __form_last_id is in __qf_arr(form_id)
 # a blank id passed in anything other than qf_form assumes the current (most recent used form_id)
 
-# to fix:  id for nonform tag should not be same as form id. use an attribute "form_id" for assigning tags to specific forms.
+# to fix:  id for nonform tag should not be same as form_id. use an attribute "form_id" for assigning tags to specific forms.
 
 #use following to limit access to page requests via post.. to reduce vulnerability to url hack and insertion attacks from web:
 #if { [ad_conn method] != POST } {
@@ -97,6 +97,8 @@ ad_proc -public qf_form {
     {arg14 ""}
     {arg15 ""}
     {arg16 ""}
+    {arg17 ""}
+    {arg18 ""}
 } {
     initiates a form with form tag and supplied attributes. Returns an id. A clumsy url based id is provided if not passed (not recommended).
 } {
@@ -119,14 +121,18 @@ ad_proc -public qf_form {
         unset arg1_list
     }
 
-    set attributes_full_list [list action class id method name style target title]
-    set arg_list [list $arg1 $arg2 $arg3 $arg4 $arg5 $arg6 $arg7 $arg8 $arg9 $arg10 $arg11 $arg12 $arg13 $arg14 $arg15 $arg16]
+    set attributes_tag_list [list action class id method name style target title]
+    set attributes_full_list $attributes_tag_list
+    lappend attributes_tag_list form_id
+    set arg_list [list $arg1 $arg2 $arg3 $arg4 $arg5 $arg6 $arg7 $arg8 $arg9 $arg10 $arg11 $arg12 $arg13 $arg14 $arg15 $arg16 $arg17 $arg18]
     set attributes_list [list]
     foreach {attribute value} $arg_list {
         set attribute_index [lsearch -exact $attributes_full_list $attribute]
         if { $attribute_index > -1 } {
             set attributes_arr($attribute) $value
-            lappend attributes_list $attribute
+            if { [lsearch -exact $attributes_tag_list $attribute] > -1 } {
+                lappend attributes_list $attribute
+            }
         } elseif { $value eq "" } {
             # ignore
         } else {
@@ -138,11 +144,9 @@ ad_proc -public qf_form {
     }
 
     if { ![info exists __qf_remember_attributes] } {
-ns_log Notice "qf_form L134: set __qf_remember_attributes 0"
         set __qf_remember_attributes 0
     }
     if { ![info exists __form_ids_list] } {
-ns_log Notice "qf_form L138: set __form_ids_list.."
         set __form_ids_list [list]
     }
     if { ![info exists __form_ids_open_list] } {
@@ -153,13 +157,22 @@ ns_log Notice "qf_form L138: set __form_ids_list.."
         foreach attribute $attributes_list {
             if { $attribute ne "id" && ![info exists attributes_arr($attribute)] && [info exists __qf_arr(form_$attribute)] } {
                 set attributes_arr($attribute) $__qf_arr(form_$attribute)
-            } 
+            }
         }
     }
-    # every form gets an id, if only to help identify it in debugging
-    if { ![info exists attributes_arr(id) ] || $attributes_arr(id) eq "" } { 
-        set attributes_arr(id) "[ad_conn url]-[llength $__form_ids_list]"
-ns_log Notice "qf_form: generating form_id $attributes_arr(id)"
+    # every form gets a form_id
+    set form_id_exists [info exists attributes_arr(form_id) ]
+    if { $form_id_exists == 0 || ( $form_id_exists == 1 && $attributes_arr(form_id) eq "" ) } { 
+        set id_exists [info exists attributes_arr(id) ]
+        if { $id_exists == 0 || ( $id_exists == 1 && $attributes_arr(id) eq "" ) } { 
+            regsub {/} [ad_conn url] {-} form_key
+            append form_key "-[llength $__form_ids_list]"
+        } else {
+            # since a FORM id has to be unique, lets use it
+            set form_key $attributes_arr(id)
+        }
+        set attributes_arr(form_id) $form_key
+        ns_log Notice "qf_form: generating form_id $attributes_arr(form_id)"
     }
 
     # prepare attributes to process
@@ -174,16 +187,16 @@ ns_log Notice "qf_form: generating form_id $attributes_arr(id)"
     
     set tag_html "<form[qf_insert_attributes $tag_attributes_list]>"
     # set results  __form_arr 
-    append __form_arr($attributes_arr(id)) "$tag_html\n"
-    if { [lsearch $__form_ids_list $attributes_arr(id)] == -1 } {
-        lappend __form_ids_list $attributes_arr(id)
+    append __form_arr($attributes_arr(form_id)) "$tag_html\n"
+    if { [lsearch $__form_ids_list $attributes_arr(form_id)] == -1 } {
+        lappend __form_ids_list $attributes_arr(form_id)
 
     }
-    if { [lsearch $__form_ids_open_list $attributes_arr(id)] == -1 } {
-        lappend __form_ids_open_list $attributes_arr(id)
+    if { [lsearch $__form_ids_open_list $attributes_arr(form_id)] == -1 } {
+        lappend __form_ids_open_list $attributes_arr(form_id)
     }
-    set __qf_arr(form_id) $attributes_arr(id)
-    return $attributes_arr(id)
+    set __qf_arr(form_id) $attributes_arr(form_id)
+    return $attributes_arr(form_id)
 }
 
 
@@ -200,6 +213,8 @@ ad_proc -public qf_fieldset {
     {arg10 ""}
     {arg11 ""}
     {arg12 ""}
+    {arg13 ""}
+    {arg14 ""}
 } {
     starts a form fieldset by appending a fieldset tag.  Fieldset closes when form closed or another fieldset defined in same form.
 } {
@@ -222,14 +237,18 @@ ad_proc -public qf_fieldset {
         unset arg1_list
     }
 
-    set attributes_full_list [list align class id style title valign]
-    set arg_list [list $arg1 $arg2 $arg3 $arg4 $arg5 $arg6 $arg7 $arg8 $arg9 $arg10 $arg11 $arg12]
+    set attributes_tag_list  [list align class id style title valign]
+    set attributes_full_list $attributes_tag_list
+    lappend attributes_full_list form_id
+    set arg_list [list $arg1 $arg2 $arg3 $arg4 $arg5 $arg6 $arg7 $arg8 $arg9 $arg10 $arg11 $arg12 $arg13 $arg14]
     set attributes_list [list]
     foreach {attribute value} $arg_list {
         set attribute_index [lsearch -exact $attributes_full_list $attribute]
         if { $attribute_index > -1 } {
             set attributes_arr($attribute) $value
-            lappend attributes_list $attribute
+            if { [lsearch -exact $attributes_tag_list $attribute] > -1 } {
+                lappend attributes_list $attribute
+            }
         } elseif { $value eq "" } {
             # do nothing                  
         } else {
@@ -246,12 +265,13 @@ ad_proc -public qf_fieldset {
         ns_log Error "qf_fieldset: invoked before qf_form or used in a different namespace than qf_form.."
         ad_script_abort
     }
-    # default to last modified form id
-    if { ![info exists attributes_arr(id)] || $attributes_arr(id) eq "" } { 
-        set attributes_arr(id) $__qf_arr(form_id) 
+    # default to last modified form_id
+    set form_id_exists [info exists attributes_arr(form_id)]
+    if { $form_id_exists == 0 || ( $form_id_exists == 1 && $attributes_arr(form_id) eq "" ) } { 
+        set attributes_arr(form_id) $__qf_arr(form_id) 
     }
-    if { [lsearch $__form_ids_list $attributes_arr(id)] == -1 } {
-        ns_log Error "qf_fieldset: unknown form id $attributes_arr(id)"
+    if { [lsearch $__form_ids_list $attributes_arr(form_id)] == -1 } {
+        ns_log Error "qf_fieldset: unknown form_id $attributes_arr(form_id)"
         ad_script_abort
     }
 
@@ -272,10 +292,10 @@ ad_proc -public qf_fieldset {
     }
     set tag_html ""
     set previous_fs 0
-    # first close any existing fieldset tag with form id
+    # first close any existing fieldset tag with form_id
     set __fieldset_open_list_exists [info exists __form_ids_fieldset_open_list]
     if { $__fieldset_open_list_exists } {
-        if { [lsearch $__form_ids_fieldset_open_list $attributes_arr(id)] > -1 } {
+        if { [lsearch $__form_ids_fieldset_open_list $attributes_arr(form_id)] > -1 } {
             append tag_html "</fieldset>\n"
             set previous_fs 1
         }
@@ -287,14 +307,13 @@ ad_proc -public qf_fieldset {
         # no changes needed, "fieldset open" already indicated
     } else {
         if { $__fieldset_open_list_exists } {
-            lappend __form_ids_fieldset_open_list $attributes_arr(id)
+            lappend __form_ids_fieldset_open_list $attributes_arr(form_id)
         } else {
-            set __form_ids_fieldset_open_list [list $attributes_arr(id)]
+            set __form_ids_fieldset_open_list [list $attributes_arr(form_id)]
         }
     }
-    # set results  __form_arr, we checked form id above.
-    append __form_arr($attributes_arr(id)) "$tag_html\n"
-
+    # set results  __form_arr, we checked form_id above.
+    append __form_arr($attributes_arr(form_id)) "$tag_html\n"
 }
 
 ad_proc -public qf_textarea { 
@@ -324,8 +343,13 @@ ad_proc -public qf_textarea {
     {arg24 ""}
     {arg25 ""}
     {arg26 ""}
+    {arg27 ""}
+    {arg28 ""}
+    {arg29 ""}
+    {arg30 ""}
 } {
     creates a form textarea tag, supplying attributes where nonempty values are supplied.
+    attributed "label" wraps a label tag around textarea.
 } {
     # use upvar to set form content, set/change defaults
     # __qf_arr contains last attribute values of tag, indexed by {tag}_attribute, __form_last_id is in __qf_arr(form_id)
@@ -346,14 +370,18 @@ ad_proc -public qf_textarea {
         unset arg1_list
     }
 
-    set attributes_full_list [list value accesskey align class cols id name readonly rows style tabindex title wrap]
-    set arg_list [list $arg1 $arg2 $arg3 $arg4 $arg5 $arg6 $arg7 $arg8 $arg9 $arg10 $arg11 $arg12 $arg13 $arg14 $arg15 $arg16 $arg17 $arg18 $arg19 $arg20 $arg21 $arg22 $arg23 $arg24 $arg25 $arg26]
+    set attributes_tag_list [list accesskey align class cols id name readonly rows style tabindex title wrap]
+    set attributes_full_list $attributes_tag_list
+    lappend attributes_full_list value label form_id
+    set arg_list [list $arg1 $arg2 $arg3 $arg4 $arg5 $arg6 $arg7 $arg8 $arg9 $arg10 $arg11 $arg12 $arg13 $arg14 $arg15 $arg16 $arg17 $arg18 $arg19 $arg20 $arg21 $arg22 $arg23 $arg24 $arg25 $arg26 $arg27 $arg28 $arg29 $arg30]
     set attributes_list [list]
     foreach {attribute value} $arg_list {
         set attribute_index [lsearch -exact $attributes_full_list $attribute]
         if { $attribute_index > -1 } {
             set attributes_arr($attribute) $value
-            lappend attributes_list $attribute
+            if { [lsearch -exact $attributes_tag_list $attribute ] > -1 } {
+                lappend attributes_list $attribute
+            }
         } elseif { $value eq "" } {
             # do nothing                  
         } else {
@@ -370,35 +398,51 @@ ad_proc -public qf_textarea {
         ns_log Error "qf_textarea: invoked before qf_form or used in a different namespace than qf_form.."
         ad_script_abort
     }
-    # default to last modified form id
-    if { ![info exists attributes_arr(id)] || $attributes_arr(id) eq "" } { 
-        set id $__qf_arr(form_id) 
+    # default to last modified form_id
+    set form_id_exists [info exists attributes_arr(form_id)]
+    if { $form_id_exists == 0 || ( $form_id_exists == 1 && $attributes_arr(form_id) eq "" ) } { 
+        set attributes_arr(form_id) $__qf_arr(form_id) 
     }
-    if { [lsearch $__form_ids_list $attributes_arr(id)] == -1 } {
-        ns_log Error "qf_textarea: unknown form id $attributes_arr(id)"
+    if { [lsearch $__form_ids_list $attributes_arr(form_id)] == -1 } {
+        ns_log Error "qf_textarea: unknown form_id $attributes_arr(form_id)"
         ad_script_abort
     }
 
     # use previous tag attribute values?
     if { $__qf_remember_attributes } {
         foreach attribute $attributes_list {
-            if { $attribute ne "id" && $attribute ne "value" && ![info exists attributes_arr($attribute)] && [info exists __qf_arr(textarea_$attribute)] } {
+            if { $attribute ne "id" && ![info exists attributes_arr($attribute)] && [info exists __qf_arr(textarea_$attribute)] } {
                 set attributes_arr($attribute) $__qf_arr(textarea_$attribute)
             }
         }
     }
 
+    # value defaults to blank
+    if { ![info exists attributes_arr(value) ] } {
+        set attributes_arr(value) ""
+    }
+
+    # id defalts to form_id+name if label exists..
+    if { [info exists attributes_arr(label)] && ![info exists attributes_arr(id)] && [info exists attributes_arr(name)] } {
+        set attributes_arr(id) "${attributes_arr(form_id)}-${attributes_arr(name)}"
+        lappend attributes_list id
+    }
+
     # prepare attributes to process
     set tag_attributes_list [list]
     foreach attribute $attributes_list {
-        if { $attribute ne "value" } {
-            set __qf_arr(textarea_$attribute) $attributes_arr($attribute)
-            lappend tag_attributes_list $attribute $attributes_arr($attribute)
-        } 
+        set __qf_arr(textarea_$attribute) $attributes_arr($attribute)
+        lappend tag_attributes_list $attribute $attributes_arr($attribute)
     }
-    set tag_html "<textarea[qf_insert_attributes $tag_attributes_list]>$value</textarea>"
-    # set results  __form_arr, we checked form id above.
-    append __form_arr($attributes_arr(id)) "${tag_html}\n"
+
+    # by default, wrap the input with a label tag for better UI
+    if { [info exists attributes_arr(id) ] && [info exists attributes_arr(label)] } {
+        set tag_html "<label for=\"${attributes_arr(id)}\">${attributes_arr(label)}<textarea[qf_insert_attributes $tag_attributes_list]>${attributes_arr(value)}</textarea></label>"
+    } else {
+        set tag_html "<textarea[qf_insert_attributes $tag_attributes_list]>${attributes_arr(value)}</textarea>"
+    }
+    # set results  __form_arr, we checked form_id above.
+    append __form_arr($attributes_arr(form_id)) "${tag_html}\n"
      
 }
 
@@ -425,6 +469,12 @@ ad_proc -public qf_select {
     {arg20 ""}
     {arg21 ""}
     {arg22 ""}
+    {arg23 ""}
+    {arg24 ""}
+    {arg25 ""}
+    {arg26 ""}
+    {arg27 ""}
+    {arg28 ""}
 } {
     creates a form select/options tag, supplying attributes where nonempty values are supplied. set multiple to 1 to activate multiple attribute.
     "value" argument is a list_of_lists passed to qf_options, where the list_of_lists represents a list of OPTION tag attribute/value pairs. 
@@ -449,14 +499,18 @@ ad_proc -public qf_select {
         unset arg1_list
     }
 
-    set attributes_full_list [list value accesskey align class cols id name readonly rows style tabindex title wrap]
-    set arg_list [list $arg1 $arg2 $arg3 $arg4 $arg5 $arg6 $arg7 $arg8 $arg9 $arg10 $arg11 $arg12 $arg13 $arg14 $arg15 $arg16 $arg17 $arg18 $arg19 $arg20 $arg21 $arg22]
+    set attributes_tag_list [list accesskey align class cols id name readonly rows style tabindex title wrap]
+    set attributes_full_list $attributes_tag_list
+    lappend attributes_full_list value form_id value_html
+    set arg_list [list $arg1 $arg2 $arg3 $arg4 $arg5 $arg6 $arg7 $arg8 $arg9 $arg10 $arg11 $arg12 $arg13 $arg14 $arg15 $arg16 $arg17 $arg18 $arg19 $arg20 $arg21 $arg22 $arg23 $arg24 $arg25 $arg26 $arg27 $arg28]
     set attributes_list [list]
     foreach {attribute value} $arg_list {
         set attribute_index [lsearch -exact $attributes_full_list $attribute]
         if { $attribute_index > -1 } {
             set attributes_arr($attribute) $value
-            lappend attributes_list $attribute
+            if { [lsearch -exact $attributes_tag_list $attribute] > -1 } {
+                lappend attributes_list $attribute
+            }
         } elseif { $value eq "" } {
             # do nothing                  
         } else {
@@ -473,19 +527,19 @@ ad_proc -public qf_select {
         ns_log Error "qf_select: invoked before qf_form or used in a different namespace than qf_form.."
         ad_script_abort
     }
-    # default to last modified form id
-    if { ![info exists attributes_arr(id)] || $attributes_arr(id) eq "" } { 
-        set id $__qf_arr(form_id) 
+    # default to last modified form_id
+    if { ![info exists attributes_arr(form_id)] || $attributes_arr(form_id) eq "" } { 
+        set attributes_arr(form_id) $__qf_arr(form_id) 
     }
-    if { [lsearch $__form_ids_list $attributes_arr(id)] == -1 } {
-        ns_log Error "qf_select: unknown form id $attributes_arr(id)"
+    if { [lsearch $__form_ids_list $attributes_arr(form_id)] == -1 } {
+        ns_log Error "qf_select: unknown form_id $attributes_arr(form_id)"
         ad_script_abort
     }
 
     # use previous tag attribute values?
     if { $__qf_remember_attributes } {
         foreach attribute $attributes_list {
-            if { $attribute ne "id" && $attribute ne "value" && ![info exists attributes_arr($attribute)] && [info exists __qf_arr(select_$attribute)] } {
+            if { $attribute ne "id" && ![info exists attributes_arr($attribute)] && [info exists __qf_arr(select_$attribute)] } {
                 set attributes_arr($attribute) $__qf_arr(select_$attribute)
             }
         }
@@ -494,19 +548,16 @@ ad_proc -public qf_select {
     # prepare attributes to process
     set tag_attributes_list [list]
     foreach attribute $attributes_list {
-        if { $attribute ne "value" } {
             set __qf_arr(select_$attribute) $attributes_arr($attribute)
             lappend tag_attributes_list $attribute $attributes_arr($attribute)
-        } 
     }
-
 
     set tag_html ""
     set previous_select 0
-    # first close any existing selects tag with form id
+    # first close any existing selects tag with form_id
     set __select_open_list_exists [info exists __form_ids_select_open_list]
     if { $__select_open_list_exists } {
-        if { [lsearch $__form_ids_select_open_list $attributes_arr(id)] > -1 } {
+        if { [lsearch $__form_ids_select_open_list $attributes_arr(form_id)] > -1 } {
             append tag_html "</select>\n"
             set previous_select 1
         }
@@ -516,9 +567,9 @@ ad_proc -public qf_select {
         # no changes needed, "select open" already indicated
     } else {
         if { $__select_open_list_exists } {
-            lappend __form_ids_select_open_list $attributes_arr(id)
+            lappend __form_ids_select_open_list $attributes_arr(form_id)
         } else {
-            set __form_ids_select_open_list [list $attributes_arr(id)]
+            set __form_ids_select_open_list [list $attributes_arr(form_id)]
         }
     }
 
@@ -533,8 +584,8 @@ ad_proc -public qf_select {
     }
 
     append tag_html "<select[qf_insert_attributes $tag_attributes_list]>$value_list_html"
-    # set results  __form_arr, we checked form id above.
-    append __form_arr($attributes_arr(id)) "${tag_html}\n"
+    # set results  __form_arr, we checked form_id above.
+    append __form_arr($attributes_arr(form_id)) "${tag_html}\n"
 
 }
 
@@ -577,15 +628,18 @@ ad_proc -private qf_option {
     The option tag will wrap an attribute called "name".  
     To indicate "SELECTED" attribute, include the attribute "selected" with the paired value of 1.
 } {
-
-    set attributes_full_list [list class dir disabled id label lang language selected style title value name]
+    set attributes_tag_list [list class dir disabled id label lang language selected style title value]
+    set attributes_full_list $attributes_tag_list
+    lappend attributes_full_list name
     set arg_list $option_attributes_list
     set attributes_list [list]
     foreach {attribute value} $arg_list {
         set attribute_index [lsearch -exact $attributes_full_list $attribute]
         if { $attribute_index > -1 } {
             set attributes_arr($attribute) $value
-            lappend attributes_list $attribute
+            if { [lsearch -exact $attributes_tag_list $attribute] > -1 } {
+                lappend attributes_list $attribute
+            }
         } elseif { $value eq "" } {
             # do nothing                  
         } else {
@@ -597,7 +651,7 @@ ad_proc -private qf_option {
     # prepare attributes to process
     set tag_attributes_list [list]
     foreach attribute $attributes_list {
-        if { $attribute ne "name" && $attribute ne "selected" } {
+        if { $attribute ne "selected" } {
             lappend tag_attributes_list $attribute $attributes_arr($attribute)
         } 
     }
@@ -628,7 +682,7 @@ ad_proc -public qf_close {
     upvar 1 __form_ids_open_list __form_ids_open_list
     upvar 1 __form_ids_fieldset_open_list __form_ids_fieldset_open_list
 
-    set attributes_full_list [list id]
+    set attributes_full_list [list form_id]
     set arg_list [list $arg1 $arg2]
     set attributes_list [list]
     foreach {attribute value} $arg_list {
@@ -648,35 +702,32 @@ ad_proc -public qf_close {
         ns_log Error "qf_close: invoked before qf_form or used in a different namespace than qf_form.."
         ad_script_abort
     }
-    # default to all open ids
-    if { ![info exists attributes_arr(id)] || $attributes_arr(id) eq "" } { 
-        set attributes_arr(id) $__form_ids_open_list
+    # default to all open form ids
+    if { ![info exists attributes_arr(form_id)] || $attributes_arr(form_id) eq "" } { 
+        set attributes_arr(form_id) $__form_ids_open_list
     }
-    # attributes_arr(id) might be a list or a single value. Following loop should work either way.
-
-    # close chosen id(s) 
-    foreach id $attributes_arr(id) {
-        # check if id is valid
-            set form_id_position [lsearch $__form_ids_list $attributes_arr(id)]
+    # attributes_arr(form_id) might be a list or a single value. Following loop should work either way.
+    # close chosen form_id(s) 
+    set a_fieldset_exists [info exists __form_ids_fieldset_open_list]
+    foreach form_id $attributes_arr(form_id) {
+        # check if form_id is valid
+            set form_id_position [lsearch $__form_ids_list $attributes_arr(form_id)]
         if { $form_id_position == -1 } {
-            ns_log Warning "qf_close: unknown form id $attributes_arr(id)"
-        } else {
+            ns_log Warning "qf_close: unknown form_id $attributes_arr(form_id)"
+        } elseif { $a_fieldset_exists } {
             # close fieldset tag if form has an open one.
-            set form_id_fs_position [lsearch $__form_ids_fieldset_open_list $id]
+            set form_id_fs_position [lsearch $__form_ids_fieldset_open_list $form_id]
             if { $form_id_fs_position > -1 } {
-                append __form_arr($id) "</fieldset>\n"
-                # remove id from __form_ids_fieldset_open_list
+                append __form_arr($form_id) "</fieldset>\n"
+                # remove form_id from __form_ids_fieldset_open_list
                 set __form_ids_fieldset_open_list [lreplace $__form_ids_fieldset_open_list $form_id_fs_position $form_id_fs_position]
             }
             # close form
-            append __form_arr($id) "</form>\n"    
-            # remove id from __form_ids_open_list            
+            append __form_arr($form_id) "</form>\n"    
+            # remove form_id from __form_ids_open_list            
             set __form_ids_open_list [lreplace $__form_ids_open_list $form_id_position $form_id_position]
-
         }
-
     }
-
 }
 
 ad_proc -public qf_read { 
@@ -684,13 +735,13 @@ ad_proc -public qf_read {
     {arg2 ""}
 } {
 
-    returns the content of forms. If a form is not closed, returns the form in its partial state of completeness. If an id or form_id is supplied, returns the content of a specific form. Defaults to return all forms in a list.
+    returns the content of forms. If a form is not closed, returns the form in its partial state of completeness. If a form_id is supplied, returns the content of a specific form. Defaults to return all forms in a list.
 } {
     # use upvar to set form content, set/change defaults
     upvar 1 __form_ids_list __form_ids_list
     upvar 1 __form_arr __form_arr
 
-    set attributes_full_list [list id]
+    set attributes_full_list [list form_id]
     set arg_list [list $arg1 $arg2]
     set attributes_list [list]
     foreach {attribute value} $arg_list {
@@ -715,15 +766,16 @@ ad_proc -public qf_read {
         set attributes_arr(id) $attributes_arr(form_id)
         unset attributes_arr(form_id)
     }
-    # defaults to all ids
-    if { ![info exists attributes_arr(id)] || $attributes_arr(id) eq "" } { 
+    # defaults to all form ids
+    set form_id_exists [info exists attributes_arr(id)]
+    if { $form_id_exists == 0 || ( $form_id_exists == 1 && $attributes_arr(form_id) eq "" ) } { 
         # note, attributes_arr(id) might become a list or a scalar..
         if { [llength $__form_ids_list ] == 1 } {
             set specified_1 1
-            set attributes_arr(id) [lindex $__forms_id_list 0]
+            set attributes_arr(form_id) [lindex $__form_ids_list 0]
         } else {
             set specified_1 0
-            set attributes_arr(id) $__form_ids_list
+            set attributes_arr(form_id) $__form_ids_list
         }
     } else {
         set specified_1 1
@@ -731,20 +783,20 @@ ad_proc -public qf_read {
 
     if { $specified_1 } {
         # a form specified in argument
-        if { ![info exists __form_arr($attriubtes_arr(id)) ] } {
-            ns_log Warning "qf_read: unknown form id $attributes_arr(id)"
+        if { ![info exists __form_arr($attributes_arr(form_id)) ] } {
+            ns_log Warning "qf_read: unknown form_id $attributes_arr(form_id)"
         } else {
-             set form_s $__form_arr($attributes_arr(id))
+             set form_s $__form_arr($attributes_arr(form_id))
         }
     } else {
         set forms_list [list]
-        foreach id $attributes_arr(id) {
-            # check if id is valid
-            set form_id_position [lsearch $__form_ids_list $attributes_arr(id)]
+        foreach form_id $attributes_arr(form_id) {
+            # check if form_id is valid
+            set form_id_position [lsearch $__form_ids_list $form_id]
             if { $form_id_position == -1 } {
-                ns_log Warning "qf_read: unknown form id $attributes_arr(id)"
+                ns_log Warning "qf_read: unknown form_id $form_id"
             } else {
-                lappend forms_list $__form_arr($id)
+                lappend forms_list $__form_arr($form_id)
             }
         }
         set form_s $forms_list
@@ -800,14 +852,18 @@ ad_proc -public qf_input {
     upvar 1 __qf_arr __qf_arr
     upvar 1 __form_ids_fieldset_open_list __form_ids_fieldset_open_list
 
-    set attributes_full_list [list type accesskey align alt border checked class id maxlength name readonly size src tabindex value form_id label]
+    set attributes_tag_list [list type accesskey align alt border checked class id maxlength name readonly size src tabindex value]
+    set attributes_full_list $attributes_tag_list
+    lappend attributes_full_list form_id label
     set arg_list [list $arg1 $arg2 $arg3 $arg4 $arg5 $arg6 $arg7 $arg8 $arg9 $arg10 $arg11 $arg12 $arg13 $arg14 $arg15 $arg16 $arg17 $arg18 $arg19 $arg20 $arg21 $arg22 $arg23 $arg24 $arg25 $arg26 $arg27 $arg28 $arg29 $arg30 $arg31 $arg32]
     set attributes_list [list]
     foreach {attribute value} $arg_list {
         set attribute_index [lsearch -exact $attributes_full_list $attribute]
         if { $attribute_index > -1 } {
             set attributes_arr($attribute) $value
-            lappend attributes_list $attribute
+            if { [lsearch -exact $attributes_tag_list $attribute] } {
+                lappend attributes_list $attribute
+            }
         } elseif { $value eq "" } {
             # do nothing                  
         } else {
@@ -823,12 +879,12 @@ ad_proc -public qf_input {
         ns_log Error "qf_input:(L805) invoked before qf_form or used in a different namespace than qf_form.."
         ad_script_abort
     }
-    # default to last modified form id
+    # default to last modified form_id
     if { ![info exists attributes_arr(form_id)] || $attributes_arr(form_id) eq "" } { 
-        set form_id $__qf_arr(form_id) 
+        set attributes_arr(form_id) $__qf_arr(form_id) 
     }
     if { [lsearch $__form_ids_list $attributes_arr(form_id)] == -1 } {
-        ns_log Error "qf_input: unknown form id $attributes_arr(id)"
+        ns_log Error "qf_input: unknown form_id $attributes_arr(form_id)"
         ad_script_abort
     }
 
@@ -841,33 +897,36 @@ ad_proc -public qf_input {
         }
     }
 
+    # provide a blank value by default
+    if { ![info exists attributes_arr(value)] } {
+        set attributes_arr(value) ""
+    }
+
     # prepare attributes to process
     set tag_attributes_list [list]
     foreach attribute $attributes_list {
-        if { $attribute ne "value" } {
-            set __qf_arr(input_$attribute) $attributes_arr($attribute)
-            lappend tag_attributes_list $attribute $attributes_arr($attribute)
-        } 
+        set __qf_arr(input_$attribute) $attributes_arr($attribute)
+        lappend tag_attributes_list $attribute $attributes_arr($attribute)
     }
 
     # by default, wrap the input with a label tag for better UI
     if { [info exists attributes_arr(id) ] && [info exists attributes_arr(label)] && [info exists attributes_arr(type) ] && $attributes_arr(type) ne "hidden" } {
         if { $attributes_arr(type) eq "checkbox" || $attributes_arr(type) eq "radio" } {
-            set tag_html "<label for=\"${attributes_arr(id)}\"><input[qf_insert_attributes $tag_attributes_list]>$label</label>"
+            set tag_html "<label for=\"${attributes_arr(id)}\"><input[qf_insert_attributes $tag_attributes_list]>${attributes_arr(label)}</label>"
         } else {
-            set tag_html "<label for=\"${attributes_arr(id)}\">$label<input[qf_insert_attributes $tag_attributes_list]></label>"
+            set tag_html "<label for=\"${attributes_arr(id)}\">${attributes_arr(label)}<input[qf_insert_attributes $tag_attributes_list]></label>"
         }
     } else {
-        set tag_html "<input[qf_insert_attributes $tag_attributes_list]>$value"
+        set tag_html "<input[qf_insert_attributes $tag_attributes_list]>"
     }
 
-    # set results  __form_arr, we checked form id above.
+    # set results  __form_arr, we checked form_id above.
     append __form_arr($attributes_arr(form_id)) "${tag_html}\n"
      
     return 
 }
 
-ad_proc -public qf_insert_html { 
+ad_proc -public qf_append { 
     {arg1 ""}
     {arg2 ""}
     {arg3 ""}
@@ -875,6 +934,8 @@ ad_proc -public qf_insert_html {
     {arg5 ""}
     {arg6 ""}
 } {
+    @param@ html
+    @param@ form_id
     inserts html in a form by appending supplied html. if form_id supplied, appends form with supplied form_id.
 } {
     # use upvar to set form content, set/change defaults
@@ -904,16 +965,17 @@ ad_proc -public qf_insert_html {
         ns_log Error "qf_insert_html: invoked before qf_form or used in a different namespace than qf_form.."
         ad_script_abort
     }
-    # default to last modified form id
-    if { ![info exists attributes_arr(form_id)] || $attributes_arr(form_id) eq "" } { 
-        set form_id $__qf_arr(form_id) 
+    # default to last modified form_id
+    set form_id_exists [info exists attributes_arr(form_id)]
+    if { $form_id_exists == 0 || ( $form_id_exists == 1 && $attributes_arr(form_id) eq "" ) } { 
+        set attributes_arr(form_id) $__qf_arr(form_id) 
     }
     if { [lsearch $__form_ids_list $attributes_arr(form_id)] == -1 } {
-        ns_log Error "qf_insert_html: unknown form id $attributes_arr(id)"
+        ns_log Error "qf_insert_html: unknown form_id $attributes_arr(form_id)"
         ad_script_abort
     }
 
-    # set results  __form_arr, we checked form id above.
+    # set results  __form_arr, we checked form_id above.
     append __form_arr($attributes_arr(form_id)) $attributes_arr(html)
     return 
 }
@@ -976,8 +1038,9 @@ ad_proc -public qf_choice {
     upvar 1 __qf_remember_attributes __qf_remember_attributes
     upvar 1 __qf_arr __qf_arr
     upvar 1 __form_ids_select_open_list __form_ids_select_open_list
-
-    set attributes_full_list [list value accesskey align class cols id name readonly rows style tabindex title wrap type form_id]
+    set attributes_select_list [list value accesskey align class cols name readonly rows style tabindex title wrap]
+    set attributes_full_list $attributes_select_list
+    lappend attributes_full_list type form_id id
     set arg_list [list $arg1 $arg2 $arg3 $arg4 $arg5 $arg6 $arg7 $arg8 $arg9 $arg10 $arg11 $arg12 $arg13 $arg14 $arg15 $arg16 $arg17 $arg18 $arg19 $arg20 $arg21 $arg22 $arg23 $arg24]
     set attributes_list [list]
     set select_list [list]
@@ -986,7 +1049,7 @@ ad_proc -public qf_choice {
         if { $attribute_index > -1 } {
             set attributes_arr($attribute) $value
             lappend attributes_list $attribute
-            if { $attribute ne "type" && $attribute ne "form_id" && $attribute ne "id" } {
+            if { [lsearch -exact $attributes_select_list $attribute] > -1 } {
                 # create a list to pass to qf_select without it balking at unknown parameters
                 lappend select_list $attribute $value
             } 
@@ -1054,8 +1117,7 @@ ad_proc -public qf_choice {
     } else {
         set args_html [qf_select $arg1 $arg2 $arg3 $arg4 $arg5 $arg6 $arg7 $arg8 $arg9 $arg10 $arg11 $arg12 $arg13 $arg14 $arg15 $arg16 $arg17 $arg18 $arg19 $arg20 $arg21 $arg22 $arg23 $arg24]
     }
-
-    
+    return $args_html
 }
 
 ad_proc -public qf_choices {
@@ -1102,7 +1164,9 @@ ad_proc -public qf_choices {
     upvar 1 __qf_arr __qf_arr
     upvar 1 __form_ids_select_open_list __form_ids_select_open_list
 
-    set attributes_full_list [list value accesskey align class cols id name readonly rows style tabindex title wrap type form_id]
+    set attributes_select_list [list value accesskey align class cols name readonly rows style tabindex title wrap]
+    set attributes_full_list $attributes_select_list
+    lappend attributes_full_list type form_id id
     set arg_list [list $arg1 $arg2 $arg3 $arg4 $arg5 $arg6 $arg7 $arg8 $arg9 $arg10 $arg11 $arg12 $arg13 $arg14 $arg15 $arg16 $arg17 $arg18 $arg19 $arg20 $arg21 $arg22 $arg23 $arg24]
     set attributes_list [list]
     set select_list [list]
@@ -1111,7 +1175,7 @@ ad_proc -public qf_choices {
         if { $attribute_index > -1 } {
             set attributes_arr($attribute) $value
             lappend attributes_list $attribute
-            if { $attribute ne "type" && $attribute ne "form_id" && $attribute ne "id" } {
+            if { [lsearch -exact $attributes_select_list $attribute ] > -1 } {
                 # create a list to pass to qf_select without it balking at unknown parameters
                 lappend select_list $attribute $value
             } 
@@ -1178,5 +1242,5 @@ ad_proc -public qf_choices {
     } else {
         set args_html [qf_select $arg1 $arg2 $arg3 $arg4 $arg5 $arg6 $arg7 $arg8 $arg9 $arg10 $arg11 $arg12 $arg13 $arg14 $arg15 $arg16 $arg17 $arg18 $arg19 $arg20 $arg21 $arg22 $arg23 $arg24]
     }
-
+    return $args_html
 }    
