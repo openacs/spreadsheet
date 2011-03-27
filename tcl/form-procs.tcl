@@ -1,4 +1,4 @@
-ad_library {
+ ad_library {
 
     routines for creating, managing input via html forms
     @creation-date 21 Nov 2010
@@ -26,44 +26,57 @@ ad_library {
 
 ad_proc -public qf_get_inputs_as_array {
     {form_array_name "__form_input_arr"}
+    {duplicate_key_check "0"}
 } {
     get inputs from form submission, quotes all input values. use ad_unquotehtml to unquote a value.
+    if duplicate_key_check is 1, checks if an existing key/value pair already exists, otherwise just overwrites.  Overwriting
+    is programmatically useful to overwrite preset defaults, for example.
 } {
     upvar 1 $form_array_name __form_input_arr
     # get form variables passed with connection
+
     set __form [ns_getform]
     if { $__form eq "" } {
         set __form_size 0
     } else {
         set __form_size [ns_set size $__form]
     }
+    #ns_log Notice "qf_get_inputs_as_array: formsize $__form_size"
     for { set __form_counter_i 0 } { $__form_counter_i < $__form_size } { incr __form_counter_i } {
-        
+
+        regexp -nocase -- {^[a-z][a-z0-9_\.\:\(\)]*} [ns_set key $__form $__form_counter_i]] __form_key
+        # Why doesn't work for  regexp -nocase -- {^[a-z][a-z0-9_\.\:\(\)]*$}    ?
+        set __form_key_exists [info exists __form_key]
+        # ns_log Notice "qf_get_inputs_as_array: __form_key_exists = ${__form_key_exists}"
+
         # no inserting tcl commands etc!
-        if { ![regexp -nocase -- {^[a-z][a-z0-9_\.\:\(\)]*$} [ns_set key $__form $__form_counter_i]] } {
+        if { $__form_key_exists == 0 || ( $__form_key_exists == 1 && [string length $__form_key] == 0 ) } {
             # let's make this an error for now, so we log any attempts
-            ns_log Error "qf_get_inputs_as_array: attempt to insert unallowed characters to user input '{__form_key}'."
-            ad_script_abort
+#            ns_log Debug "qf_get_inputs_as_array: attempt to insert unallowed characters to user input '{__form_key}' as '[ns_set key $__form $__form_counter_i]' for counter ${__form_counter_i}."
+            ns_log Notice "qf_get_inputs_as_array: attempt to insert unallowed characters to user input '{__form_key}'."
         } else {
+            set __form_key [ad_quotehtml $__form_key]
             # The name of the argument passed in the form
             # no legitimate argument should be affected by quoting:
-            set __form_key [ad_quotehtml [ns_set key $__form $__form_counter_i]]
-        }
-
-        # This is the value
-        set __form_input [ad_quotehtml [ns_set value $__form $__form_counter_i]]
-        if { [info exists --form_input_arr($__form_key) ] } {
-            if { $__form_input ne $__form_input_arr($__form_key) } {
-                # which one is correct? log error
-                ns_log Error "qf_get_form_input: form input error. duplcate key provided for ${__form_key}"
-                ad_script_abort
+    
+            # This is the value
+            set __form_input [ad_quotehtml [ns_set value $__form $__form_counter_i]]
+            # check for duplicate key?
+            if { $duplicate_key_check && [info exists __form_input_arr($__form_key) ] } {
+                if { $__form_input ne $__form_input_arr($__form_key) } {
+                    # which one is correct? log error
+                    ns_log Error "qf_get_form_input: form input error. duplcate key provided for ${__form_key}"
+                    ad_script_abort
+                } else {
+                    ns_log Warning "qf_get_form_input: notice, form has two keys with same info.."
+                }
             } else {
-                ns_log Warning "qf_get_form_input: notice, form has two keys with same info.."
+                set __form_input_arr($__form_key) $__form_input
+#                ns_log Debug "qf_get_inputs_as_array: set ${form_array_name}($__form_key) '${__form_input}'."
             }
-        } else {
-            set __form_input_arr($__form_key) $__form_input
+
+            # next key-value pair
         }
-        # next key-value pair
     }
 }
 
@@ -861,7 +874,7 @@ ad_proc -public qf_input {
         set attribute_index [lsearch -exact $attributes_full_list $attribute]
         if { $attribute_index > -1 } {
             set attributes_arr($attribute) $value
-            if { [lsearch -exact $attributes_tag_list $attribute] } {
+            if { [lsearch -exact $attributes_tag_list $attribute] > -1 } {
                 lappend attributes_list $attribute
             }
         } elseif { $value eq "" } {
