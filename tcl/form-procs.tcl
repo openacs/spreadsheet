@@ -31,10 +31,11 @@ ad_proc -public qf_get_inputs_as_array {
     get inputs from form submission, quotes all input values. use ad_unquotehtml to unquote a value.
     if duplicate_key_check is 1, checks if an existing key/value pair already exists, otherwise just overwrites.  Overwriting
     is programmatically useful to overwrite preset defaults, for example.
+    returns 1 if form inputs exist, otherwise returns 0
 } {
     upvar 1 $form_array_name __form_input_arr
     # get form variables passed with connection
-
+    set __form_input_exists 0
     set __form [ns_getform]
     if { $__form eq "" } {
         set __form_size 0
@@ -44,8 +45,8 @@ ad_proc -public qf_get_inputs_as_array {
     #ns_log Notice "qf_get_inputs_as_array: formsize $__form_size"
     for { set __form_counter_i 0 } { $__form_counter_i < $__form_size } { incr __form_counter_i } {
 
-        regexp -nocase -- {^[a-z][a-z0-9_\.\:\(\)]*} [ns_set key $__form $__form_counter_i]] __form_key
-        # Why doesn't work for  regexp -nocase -- {^[a-z][a-z0-9_\.\:\(\)]*$}    ?
+        regexp -nocase -- {^[a-z][a-z0-9_\.\:\(\)]*} [ns_set key $__form $__form_counter_i] __form_key
+        # Why doesn't work for  regexp -nocase -- {^[a-z][a-z0-9_\.\:\(\)]*$ }    ?
         set __form_key_exists [info exists __form_key]
         # ns_log Notice "qf_get_inputs_as_array: __form_key_exists = ${__form_key_exists}"
 
@@ -61,12 +62,15 @@ ad_proc -public qf_get_inputs_as_array {
     
             # This is the value
             set __form_input [ad_quotehtml [ns_set value $__form $__form_counter_i]]
+
+            set __form_input_exists 1
             # check for duplicate key?
             if { $duplicate_key_check && [info exists __form_input_arr($__form_key) ] } {
                 if { $__form_input ne $__form_input_arr($__form_key) } {
                     # which one is correct? log error
                     ns_log Error "qf_get_form_input: form input error. duplcate key provided for ${__form_key}"
                     ad_script_abort
+                    # set __form_input_exists to -1 instead of ad_script_abort?
                 } else {
                     ns_log Warning "qf_get_form_input: notice, form has two keys with same info.."
                 }
@@ -78,6 +82,7 @@ ad_proc -public qf_get_inputs_as_array {
             # next key-value pair
         }
     }
+    return $__form_input_exists
 }
 
 ad_proc -public qf_remember_attributes {
@@ -154,6 +159,7 @@ ad_proc -public qf_form {
     }
     if { ![info exists attributes_arr(method)] } {
         set attributes_arr(method) "post"
+        lappend attributes_list "method"
     }
 
     if { ![info exists __qf_remember_attributes] } {
@@ -433,6 +439,7 @@ ad_proc -public qf_textarea {
     # value defaults to blank
     if { ![info exists attributes_arr(value) ] } {
         set attributes_arr(value) ""
+        lappend attributes_list "value"
     }
 
     # id defalts to form_id+name if label exists..
@@ -986,6 +993,14 @@ ad_proc -public qf_append {
     if { [lsearch $__form_ids_list $attributes_arr(form_id)] == -1 } {
         ns_log Error "qf_insert_html: unknown form_id $attributes_arr(form_id)"
         ad_script_abort
+    }
+    if { ![info exists attributes_arr(html)] } {
+        set attributs_arr(html) ""
+        ns_log Notice "qf_append: no argument 'html'"
+        if { [lsearch -exact $attributes_list "html"] == -1 } {
+            set attributes_arr(html) ""
+            lappend attributes_list "html"
+        }
     }
 
     # set results  __form_arr, we checked form_id above.
