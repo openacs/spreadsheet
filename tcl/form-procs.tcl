@@ -725,22 +725,27 @@ ad_proc -public qf_close {
     # default to all open form ids
     if { ![info exists attributes_arr(form_id)] || $attributes_arr(form_id) eq "" } { 
         set attributes_arr(form_id) $__form_ids_open_list
+        if { [lsearch -exact $attributes_list form_id] == -1 } {
+            lappend attributes_list "form_id"
+        }
     }
     # attributes_arr(form_id) might be a list or a single value. Following loop should work either way.
     # close chosen form_id(s) 
     set a_fieldset_exists [info exists __form_ids_fieldset_open_list]
     foreach form_id $attributes_arr(form_id) {
         # check if form_id is valid
-            set form_id_position [lsearch $__form_ids_list $attributes_arr(form_id)]
+        set form_id_position [lsearch -exact $__form_ids_list $attributes_arr(form_id)]
         if { $form_id_position == -1 } {
             ns_log Warning "qf_close: unknown form_id $attributes_arr(form_id)"
-        } elseif { $a_fieldset_exists } {
-            # close fieldset tag if form has an open one.
-            set form_id_fs_position [lsearch $__form_ids_fieldset_open_list $form_id]
-            if { $form_id_fs_position > -1 } {
-                append __form_arr($form_id) "</fieldset>\n"
-                # remove form_id from __form_ids_fieldset_open_list
-                set __form_ids_fieldset_open_list [lreplace $__form_ids_fieldset_open_list $form_id_fs_position $form_id_fs_position]
+        } else {
+            if { $a_fieldset_exists } {
+                # close fieldset tag if form has an open one.
+                set form_id_fs_position [lsearch -exact $__form_ids_fieldset_open_list $form_id]
+                if { $form_id_fs_position > -1 } {
+                    append __form_arr($form_id) "</fieldset>\n"
+                    # remove form_id from __form_ids_fieldset_open_list
+                    set __form_ids_fieldset_open_list [lreplace $__form_ids_fieldset_open_list $form_id_fs_position $form_id_fs_position]
+                }
             }
             # close form
             append __form_arr($form_id) "</form>\n"    
