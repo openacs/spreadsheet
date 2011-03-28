@@ -97,13 +97,13 @@ if { $form_posted } {
 # build form
 
 # a standard place to invoke qf_remember_attributes
-qf_form action example-form id 99
+qf_form action example-form id i99
 
-qf_input type text value $input_array(full_name) name full_name label $title_array(full_name) id 967 size 40 maxlength 50
+qf_input type text value $input_array(full_name) name full_name label $title_array(full_name) id i967 size 40 maxlength 50
 qf_append html "<br>"
-qf_input type text value $input_array(email_address) name email_address label $title_array(email_address) id 968 size 40 maxlength 80
+qf_input type text value $input_array(email_address) name email_address label $title_array(email_address) id i968 size 40 maxlength 80
 qf_append html "<br>"
-qf_input type text value $input_array(subject) name subject label $title_array(subject) id 969 size 40 maxlength 80
+qf_input type text value $input_array(subject) name subject label $title_array(subject) id i969 size 40 maxlength 80
 qf_append html "<br>"
 qf_textarea name message rows 30 cols 40 label $title_array(message) value $input_array(message)
 qf_append html "<br>"
