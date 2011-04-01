@@ -633,7 +633,7 @@ ad_proc -private qf_options {
     }
 
     set options_html ""
-    foreach option_tag_attribute_list $options_lists_of_lists {
+    foreach option_tag_attribute_list $options_list_of_lists {
         append options_html [qf_option $option_tag_attribute_list]
     }
     return $options_html
@@ -1089,13 +1089,13 @@ ad_proc -public qf_choice {
         } elseif { $value eq "" } {
             # do nothing                  
         } else {
-            ns_log Error "qf_select: [string range $attribute 0 15] is not a valid attribute. invoke with attribute value pairs. Separate each with a space."
+            ns_log Error "qf_choice: [string range $attribute 0 15] is not a valid attribute. invoke with attribute value pairs. Separate each with a space."
             ad_script_abort
         }
     }
     # for passing select_list, we need to change id with form_id, since we left those off, we can just add form_id as id:
-    if { [info exists $attributes_arr(form_id) ] } {
-        lappend select_list id $attributes_arr(form_id)
+    if { [info exists attributes_arr(form_id) ] } {
+        lappend select_list form_id $attributes_arr(form_id)
     }
     
 
@@ -1148,7 +1148,7 @@ ad_proc -public qf_choice {
         append args_html "</${tag_wrapping}>"
         qf_insert_html $attributes_arr(form_id) $args_html
     } else {
-        set args_html [qf_select $arg1 $arg2 $arg3 $arg4 $arg5 $arg6 $arg7 $arg8 $arg9 $arg10 $arg11 $arg12 $arg13 $arg14 $arg15 $arg16 $arg17 $arg18 $arg19 $arg20 $arg21 $arg22 $arg23 $arg24]
+        set args_html [qf_select $select_list]
     }
     return $args_html
 }
@@ -1215,13 +1215,13 @@ ad_proc -public qf_choices {
         } elseif { $value eq "" } {
             # do nothing                  
         } else {
-            ns_log Error "qf_select: [string range $attribute 0 15] is not a valid attribute. invoke with attribute value pairs. Separate each with a space."
+            ns_log Error "qf_choices: [string range $attribute 0 15] is not a valid attribute. invoke with attribute value pairs. Separate each with a space."
             ad_script_abort
         }
     }
     # for passing select_list, we need to change id with form_id, since we left those off, we can just add form_id as id:
-    if { [info exists $attributes_arr(form_id) ] } {
-        lappend select_list id $attributes_arr(form_id)
+    if { [info exists attributes_arr(form_id) ] } {
+        lappend select_list form_id $attributes_arr(form_id)
     }
     
 
@@ -1273,7 +1273,7 @@ ad_proc -public qf_choices {
         append args_html "</${tag_wrapping}>"
         qf_insert_html $attributes_arr(form_id) $args_html
     } else {
-        set args_html [qf_select $arg1 $arg2 $arg3 $arg4 $arg5 $arg6 $arg7 $arg8 $arg9 $arg10 $arg11 $arg12 $arg13 $arg14 $arg15 $arg16 $arg17 $arg18 $arg19 $arg20 $arg21 $arg22 $arg23 $arg24]
+        set args_html [qf_select $select_list]
     }
     return $args_html
 }    
