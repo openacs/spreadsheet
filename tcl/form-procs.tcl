@@ -1,4 +1,4 @@
- ad_library {
+ad_library {
 
     routines for creating, managing input via html forms
     @creation-date 21 Nov 2010
@@ -603,7 +603,7 @@ ad_proc -public qf_select {
         append value_list_html [qf_options $attributes_arr(value)]
     }
 
-    append tag_html "<select[qf_insert_attributes $tag_attributes_list]>$value_list_html"
+    append tag_html "<select[qf_insert_attributes $tag_attributes_list]>$value_list_html</select>"
     # set results  __form_arr, we checked form_id above.
     append __form_arr($attributes_arr(form_id)) "${tag_html}\n"
 
@@ -650,7 +650,7 @@ ad_proc -private qf_option {
 } {
     set attributes_tag_list [list class dir disabled id label lang language selected style title value]
     set attributes_full_list $attributes_tag_list
-    lappend attributes_full_list name
+    lappend attributes_full_list label name
     set arg_list $option_attributes_list
     set attributes_list [list]
     foreach {attribute value} $arg_list {
@@ -675,9 +675,12 @@ ad_proc -private qf_option {
             lappend tag_attributes_list $attribute $attributes_arr($attribute)
         } 
     }
-
-    if { [info exists attributes_arr(name)] } {
+    if { [info exists attributes_arr(label)] } {
+        set name_html $attributes_arr(label)
+    } elseif { [info exists attributes_arr(name)] } {
         set name_html $attributes_arr(name)
+    } elseif { [info exists attributes_arr(value)] } {
+        set name_html $attributes_arr(value)
     } else {
         set name_html ""
     }
@@ -879,10 +882,22 @@ ad_proc -public qf_input {
     upvar 1 __qf_arr __qf_arr
     upvar 1 __form_ids_fieldset_open_list __form_ids_fieldset_open_list
 
+    # if proc was passed a list of parameters, parse
+    if { [llength $arg1] > 1 && [llength $arg2] == 0 } {
+        set arg1_list $arg1
+        set lposition 1
+        foreach arg $arg1_list {
+            set arg${lposition} $arg
+            incr lposition
+        }
+        unset arg1_list
+    }
+
     set attributes_tag_list [list type accesskey align alt border checked class id maxlength name readonly size src tabindex value]
     set attributes_full_list $attributes_tag_list
     lappend attributes_full_list form_id label
     set arg_list [list $arg1 $arg2 $arg3 $arg4 $arg5 $arg6 $arg7 $arg8 $arg9 $arg10 $arg11 $arg12 $arg13 $arg14 $arg15 $arg16 $arg17 $arg18 $arg19 $arg20 $arg21 $arg22 $arg23 $arg24 $arg25 $arg26 $arg27 $arg28 $arg29 $arg30 $arg31 $arg32]
+
     set attributes_list [list]
     foreach {attribute value} $arg_list {
         set attribute_index [lsearch -exact $attributes_full_list $attribute]
@@ -937,10 +952,15 @@ ad_proc -public qf_input {
     }
 
     # by default, wrap the input with a label tag for better UI
-    if { [info exists attributes_arr(id) ] && [info exists attributes_arr(label)] && [info exists attributes_arr(type) ] && $attributes_arr(type) ne "hidden" } {
+    if { [info exists attributes_arr(label)] && [info exists attributes_arr(type) ] && $attributes_arr(type) ne "hidden" } {
+        if { ![info exists attributes_arr(id) ] } {
+            set attributes_arr(id) $attributes_arr(name)
+            append attributes_arr(id) "-[string range [clock clicks -milliseconds] end-3 end]-[string range [expr { rand() }] 2 end]"
+        }
         if { $attributes_arr(type) eq "checkbox" || $attributes_arr(type) eq "radio" } {
             set tag_html "<label for=\"${attributes_arr(id)}\"><input[qf_insert_attributes $tag_attributes_list]>${attributes_arr(label)}</label>"
         } else {
+
             set tag_html "<label for=\"${attributes_arr(id)}\">${attributes_arr(label)}<input[qf_insert_attributes $tag_attributes_list]></label>"
         }
     } else {
@@ -1126,16 +1146,12 @@ ad_proc -public qf_choice {
         # create wrapping tag
         set tag_wrapping "ul"
         set args_html "<${tag_wrapping}"
-        foreach {attribute value} $attributes_select_list {
+        foreach attribute $attributes_list {
             # ignore proc parameters that are not tag attributes
             if { $attribute ne "value" } {
-                if { [string range $attribute 1 1] eq "-" } {
-                    set $attribute [string range $attribute 1 end]
-                }
                 # quoting unquoted double quotes in attribute values, so as to not inadvertently break the tag
-                regsub -all -- {\"} $value {\"} value
-
-                append args_html " $attribute=\"$value\""
+                regsub -all -- {\"} $attributes_arr($attribute) {\"} attributes_arr($attribute)
+                append args_html " $attribute=\"$attributes_arr($attribute)\""
             }
         }
         append args_html ">\n"
@@ -1150,16 +1166,28 @@ ad_proc -public qf_choice {
             # a list was passed instead of a list of lists. Adjust..
             set attributes_arr(value) [list $attributes_arr(value)]
         }
-        
         foreach input_attributes_list $attributes_arr(value) {
-            lappend input_attributes_list form_id $attributes_arr(form_id) 
+            array unset input_arr
+            array set input_arr $input_attributes_list
+            if { ![info exists input_arr(label)] && [info exists input_arr(value)] } {
+                set input_arr(label) $input_arr(value)
+            } 
+            if { ![info exists input_arr(name)] && [info exists attributes_arr(name)] } {
+                set input_arr(name) $attributes_arr(name)
+            }
+            set input_attributes_list [array get input_arr]
+            lappend input_attributes_list form_id $attributes_arr(form_id) type radio
+            qf_append form_id $attributes_arr(form_id) html "<li>"
             qf_input $input_attributes_list
+            qf_append form_id $attributes_arr(form_id) html "</li>"
         }
-
         append args_html "</${tag_wrapping}>"
         qf_append form_id $attributes_arr(form_id) html $args_html
+
     } else {
+
         set args_html [qf_select $select_list]
+
     }
     return $args_html
 }
