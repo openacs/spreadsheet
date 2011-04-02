@@ -28,10 +28,10 @@ ad_proc -public qf_get_inputs_as_array {
     {form_array_name "__form_input_arr"}
     {duplicate_key_check "0"}
 } {
-    get inputs from form submission, quotes all input values. use ad_unquotehtml to unquote a value.
-    if duplicate_key_check is 1, checks if an existing key/value pair already exists, otherwise just overwrites.  Overwriting
-    is programmatically useful to overwrite preset defaults, for example.
-    returns 1 if form inputs exist, otherwise returns 0
+    Get inputs from form submission, quotes all input values. Use ad_unquotehtml to unquote a value.
+    Returns 1 if form inputs exist, otherwise returns 0.
+    If duplicate_key_check is 1, checks if an existing key/value pair already exists, otherwise just overwrites existing value.  
+    Overwriting is programmatically useful to overwrite preset defaults, for example.
 } {
     upvar 1 $form_array_name __form_input_arr
     # get form variables passed with connection
@@ -88,7 +88,7 @@ ad_proc -public qf_get_inputs_as_array {
 ad_proc -public qf_remember_attributes {
     {arg1 "1"}
 } {
-    changes qf_* form building procs to use the previous attribute values used with the last tag of same type (input,select,button etc). passing anything other than 0 defaults to 1 (true).
+    Changes qf_* form building procs to use the previous attributes and their values used with the last tag of same type (input,select,button etc) if arg1 is 1. 
 } {
     upvar __qf_remember_attributes __qf_remember_attributes
     if { $arg1 eq 0 } {
@@ -118,7 +118,7 @@ ad_proc -public qf_form {
     {arg17 ""}
     {arg18 ""}
 } {
-    initiates a form with form tag and supplied attributes. Returns an id. A clumsy url based id is provided if not passed (not recommended).
+    Initiates a form with form tag and supplied attributes. Returns an id. A clumsy url based id is provided if not passed (not recommended).
 } {
     # use upvar to set form content, set/change defaults
     # __qf_arr contains last attribute values of tag, indexed by {tag}_attribute, __form_last_id is in __qf_arr(form_id)
@@ -235,7 +235,7 @@ ad_proc -public qf_fieldset {
     {arg13 ""}
     {arg14 ""}
 } {
-    starts a form fieldset by appending a fieldset tag.  Fieldset closes when form closed or another fieldset defined in same form.
+    Starts a form fieldset by appending a fieldset tag.  Fieldset closes when form is closed or another fieldset defined in same form.
 } {
     # use upvar to set form content, set/change defaults
     # __qf_arr contains last attribute values of tag, indexed by {tag}_attribute, __form_last_id is in __qf_arr(form_id)
@@ -367,8 +367,8 @@ ad_proc -public qf_textarea {
     {arg29 ""}
     {arg30 ""}
 } {
-    creates a form textarea tag, supplying attributes where nonempty values are supplied.
-    attributed "label" wraps a label tag around textarea.
+    Creates a form textarea tag, supplying attributes where nonempty values are supplied.
+    Attribute "label" wraps a label tag around textarea.
 } {
     # use upvar to set form content, set/change defaults
     # __qf_arr contains last attribute values of tag, indexed by {tag}_attribute, __form_last_id is in __qf_arr(form_id)
@@ -496,9 +496,9 @@ ad_proc -public qf_select {
     {arg27 ""}
     {arg28 ""}
 } {
-    creates a form select/options tag, supplying attributes where nonempty values are supplied. set multiple to 1 to activate multiple attribute.
-    "value" argument is a list_of_lists passed to qf_options, where the list_of_lists represents a list of OPTION tag attribute/value pairs. 
-    Alternate to passing "value", you can pass pure html containing literal Option tags as "value_html"
+    Creates a SELECT tag with nested OPTIONS, supplying necessary attributes where nonempty values are supplied. Set "multiple" to 1 to activate multiple attribute.
+    The argument for the "value" attribute is a list_of_lists passed to qf_options, where the list_of_lists represents a list of OPTION tag attribute/value pairs. 
+    Alternate to passing the "value" attribute, you can pass pure html containing literal Option tags as "value_html"
 } {
     # use upvar to set form content, set/change defaults
     # __qf_arr contains last attribute values of tag, indexed by {tag}_attribute, __form_last_id is in __qf_arr(form_id)
@@ -981,8 +981,8 @@ ad_proc -public qf_append {
     {arg5 ""}
     {arg6 ""}
 } {
-    @param@ html
-    @param@ form_id
+    param html required
+    param form_id
     inserts html in a form by appending supplied html. if form_id supplied, appends form with supplied form_id.
 } {
     # use upvar to set form content, set/change defaults
@@ -1078,14 +1078,36 @@ ad_proc -public qf_choice {
     {arg23 ""}
     {arg24 ""}
 } {
-    returns html of a select/option bar or radio button list (where only 1 value is returned to a posted form).
-     set "type" to "select" for select bar, or "radio" for radio buttons
-    
-     required attributes:  name, value
-     "selected" is not required, default is not selected, set "selected" to 1 to indicate item selected.
-     if label not provided, value is used for label.
-    "value" argument is a list_of_lists, each list item contains attribute/value pairs for a radio or option/bar item
-        where the list_of_lists represents a list of OPTION tag attribute/value pairs. 
+    Returns html of a select/option bar or radio button list (where only 1 value is returned to a posted form).
+    Set "type" to "select" for select bar, or "radio" for radio buttons
+    Required attributes:  name, value
+    "value" argument is a list_of_lists, each list item contains a list of attribute/value pairs for generating a radio or option/bar item.
+    "selected" is not required. Each choice is "unselected" by default. Set "selected" attribute to 1 to indicate item selected.
+    For this proc, "label" refers to the text that labels a radio buttion or select option item. If a "label" attribute/value pair is not included, The tag's value attribute is used for label as well.
+<pre>
+Example usage. This code:
+    set tag_attribute_list [list [list label " label1 " value visa1] [list label " label2 " value visa2] [list label " label3 " value visa3] ]
+    qf_choice type radio name creditcard value $tag_attribute_list
+
+Generates:
+
+"&lt;label>&lt;input type="radio" name="creditcard" value="visa1"> label1 &lt;/label>
+ &lt;label>&lt;input type="radio" name="creditcard" value="visa2"> label2 &lt;/label>
+ &lt;label>&lt;input type="radio" name="creditcard" value="visa3"> label3 &lt;/label>"
+
+By switching type to select like this:
+
+    qf_choice type select name creditcard value $tag_attribute_list
+
+the code generates:
+
+"&lt;select name="creditcard">
+&lt;option value="visa1"> label1 &lt;/option>
+&lt;option value="visa2"> label2 &lt;/option>
+&lt;option value="visa3"> label3 &lt;/option>
+&lt;/select>"
+</pre>
+    <!-- &lt; is used to prevent browser views from rendering the code presented here -->
 } {
     # use upvar to set form content, set/change defaults
     # __qf_arr contains last attribute values of tag, indexed by {tag}_attribute, __form_last_id is in __qf_arr(form_id)
@@ -1219,14 +1241,11 @@ ad_proc -public qf_choices {
     {arg24 ""}
  } {
     returns html of a select/option bar or radio button list (where only 1 value is returned to a posted form).
-     set "type" to "select" for select bar, or "checkbox" for checkboxes
-    
-     required attributes:  name, value
-     "selected" is not required, default is not selected, set "selected" to 1 to indicate item selected.
-     if label not provided, value is used for label.
-    "value" argument is a list_of_lists, each list item contains attribute/value pairs for a radio or option/bar item
-        where the list_of_lists represents a list of OPTION tag attribute/value pairs. 
-     if label not provided, value is used for label.
+     Required attributes:  name, value.  
+     Set "type" to "select" for select bar, or "checkbox" for checkboxes.
+     The value of the "value" attribute is a list_of_lists, each list item contains attribute/value pairs for a radio or option/bar item.
+     If "label" not provided for tags in the list_of_lists, the value of the "value" attribute is also used for label.
+     Set "selected" attribute to 1 in the value list_of_lists to indicate item selected. Default is unselected.
  } {
     # use upvar to set form content, set/change defaults
     # __qf_arr contains last attribute values of tag, indexed by {tag}_attribute, __form_last_id is in __qf_arr(form_id)
@@ -1287,15 +1306,12 @@ ad_proc -public qf_choices {
         # create wrapping tag
         set tag_wrapping "ul"
         set args_html "<${tag_wrapping}"
-        foreach {attribute value} $attributes_select_list {
+        foreach attribute $attributes_list {
             # ignore proc parameters that are not tag attributes
             if { $attribute ne "value" } {
-                if { [string range $attribute 1 1] eq "-" } {
-                    set $attribute [string range $attribute 1 end]
-                }
                 # quoting unquoted double quotes in attribute values, so as to not inadvertently break the tag
-                regsub -all -- {\"} $value {\"} value
-                append args_html " $attribute=\"$value\""
+                regsub -all -- {\"} $attributes_arr($attribute) {\"} attributes_arr($attribute)
+                append args_html " $attribute=\"$attributes_arr($attribute)\""
             }
         }
         append args_html ">\n"
@@ -1312,12 +1328,21 @@ ad_proc -public qf_choices {
         }
         
         foreach input_attributes_list $attributes_arr(value) {
-            lappend input_attributes_list form_id $attributes_arr(form_id) 
+            array unset input_arr
+            array set input_arr $input_attributes_list
+            if { ![info exists input_arr(label)] && [info exists input_arr(value)] } {
+                set input_arr(label) $input_arr(value)
+            } 
+            if { ![info exists input_arr(name)] && [info exists attributes_arr(name)] } {
+                set input_arr(name) $attributes_arr(name)
+            }
+            set input_attributes_list [array get input_arr]
+            lappend input_attributes_list form_id $attributes_arr(form_id) type radio
+            qf_append form_id $attributes_arr(form_id) html "<li>"
             qf_input $input_attributes_list
+            qf_append form_id $attributes_arr(form_id) html "</li>"
         }
-
         append args_html "</${tag_wrapping}>"
-        qf_append form_id $attributes_arr(form_id) html $args_html
     } else {
         set args_html [qf_select $select_list]
     }
