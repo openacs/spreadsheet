@@ -646,7 +646,7 @@ ad_proc -private qf_option {
     Creates only one option tag. For multiple OPTION tags, see qf_options
     To add a blank attribute, include attribute with a blank/empty value; 
     The option tag will wrap an attribute called "name".  
-    To indicate "SELECTED" attribute, include the attribute "selected" with the paired value of 1.
+    To indicate "SELECTED" or "DISABLED" attribute, include the attribute ("selected" or "disabled") with the paired value of 1.
 } {
     set attributes_tag_list [list class dir disabled id label lang language selected style title value]
     set attributes_full_list $attributes_tag_list
@@ -671,7 +671,7 @@ ad_proc -private qf_option {
     # prepare attributes to process
     set tag_attributes_list [list]
     foreach attribute $attributes_list {
-        if { $attribute ne "selected" } {
+        if { $attribute ne "selected" && $attribute ne "disabled"} {
             lappend tag_attributes_list $attribute $attributes_arr($attribute)
         } 
     }
@@ -683,6 +683,8 @@ ad_proc -private qf_option {
     }
     if { [info exists attributes_arr(selected)] && $attributes_arr(selected) == 1 } {
         set option_html "<option[qf_insert_attributes $tag_attributes_list] selected>$name_html</option>\n"
+    } elseif { [info exists attributes_arr(disabled)] && $attributes_arr(disabled) == 1 } {
+        set option_html "<option[qf_insert_attributes $tag_attributes_list] disabled>$name_html</option>\n"
     } else {
         set option_html "<option[qf_insert_attributes $tag_attributes_list]>$name_html</option>\n"
     }
@@ -981,22 +983,23 @@ ad_proc -public qf_append {
         } elseif { $value eq "" } {
             # do nothing                  
         } else {
-            ns_log Error "qf_insert_html: $attribute is not a valid attribute. invoke with attribute value pairs. Separate each with a space."
+            ns_log Error "qf_append: $attribute is not a valid attribute. invoke with attribute value pairs. Separate each with a space."
             ad_script_abort
         }
     }
 
     if { ![info exists __form_ids_list] } {
-        ns_log Error "qf_insert_html: invoked before qf_form or used in a different namespace than qf_form.."
+        ns_log Error "qf_append: invoked before qf_form or used in a different namespace than qf_form.."
         ad_script_abort
     }
     # default to last modified form_id
     set form_id_exists [info exists attributes_arr(form_id)]
     if { $form_id_exists == 0 || ( $form_id_exists == 1 && $attributes_arr(form_id) eq "" ) } { 
         set attributes_arr(form_id) $__qf_arr(form_id) 
+        lappend attributes_list form_id
     }
     if { [lsearch $__form_ids_list $attributes_arr(form_id)] == -1 } {
-        ns_log Error "qf_insert_html: unknown form_id $attributes_arr(form_id)"
+        ns_log Error "qf_append: unknown form_id $attributes_arr(form_id)"
         ad_script_abort
     }
     if { ![info exists attributes_arr(html)] } {
@@ -1093,11 +1096,19 @@ ad_proc -public qf_choice {
             ad_script_abort
         }
     }
-    # for passing select_list, we need to change id with form_id, since we left those off, we can just add form_id as id:
-    if { [info exists attributes_arr(form_id) ] } {
-        lappend select_list form_id $attributes_arr(form_id)
+    # for passing select_list, we need to pass form_id literally
+    # default to last modified form_id
+    set form_id_exists [info exists attributes_arr(form_id)]
+    if { $form_id_exists == 0 || ( $form_id_exists == 1 && $attributes_arr(form_id) eq "" ) } { 
+        set attributes_arr(form_id) $__qf_arr(form_id) 
     }
-    
+    if { [lsearch $__form_ids_list $attributes_arr(form_id)] == -1 } {
+        ns_log Error "qf_choice: unknown form_id $attributes_arr(form_id)"
+        ad_script_abort
+    }
+    lappend select_list form_id $attributes_arr(form_id)
+
+ 
 
     # if attributes_arr(type) = select, then items are option tags wrapped by a select tag
     # if attributes_arr(type) = radio, then items are input tags, wrapped in a list for now
@@ -1115,7 +1126,7 @@ ad_proc -public qf_choice {
         # create wrapping tag
         set tag_wrapping "ul"
         set args_html "<${tag_wrapping}"
-        foreach {attribute value} $args_list {
+        foreach {attribute value} $attributes_select_list {
             # ignore proc parameters that are not tag attributes
             if { $attribute ne "value" } {
                 if { [string range $attribute 1 1] eq "-" } {
@@ -1128,25 +1139,25 @@ ad_proc -public qf_choice {
             }
         }
         append args_html ">\n"
-        qf_insert_html $attributes_arr(form_id) $args_html
+        qf_append form_id $attributes_arr(form_id) html $args_html
         set args_html ""
 
         # verify this is a list of lists.
         set list_length [llength $attributes_arr(value)]
         # test on the second input, less chance its a special case
-        set second_input_attributes_count [llength [index $attributes_arr(value) 1]]
+        set second_input_attributes_count [llength [lindex $attributes_arr(value) 1]]
         if { $list_length > 1 && $second_input_attributes_count < 2 } {
             # a list was passed instead of a list of lists. Adjust..
             set attributes_arr(value) [list $attributes_arr(value)]
         }
         
         foreach input_attributes_list $attributes_arr(value) {
-            lappend input_attributes_list form_id $attribute_arr(form_id) 
+            lappend input_attributes_list form_id $attributes_arr(form_id) 
             qf_input $input_attributes_list
         }
 
         append args_html "</${tag_wrapping}>"
-        qf_insert_html $attributes_arr(form_id) $args_html
+        qf_append form_id $attributes_arr(form_id) html $args_html
     } else {
         set args_html [qf_select $select_list]
     }
@@ -1219,11 +1230,18 @@ ad_proc -public qf_choices {
             ad_script_abort
         }
     }
-    # for passing select_list, we need to change id with form_id, since we left those off, we can just add form_id as id:
-    if { [info exists attributes_arr(form_id) ] } {
-        lappend select_list form_id $attributes_arr(form_id)
+
+    # for passing select_list, we need to pass form_id literally
+    # default to last modified form_id
+    set form_id_exists [info exists attributes_arr(form_id)]
+    if { $form_id_exists == 0 || ( $form_id_exists == 1 && $attributes_arr(form_id) eq "" ) } { 
+        set attributes_arr(form_id) $__qf_arr(form_id) 
     }
-    
+    if { [lsearch $__form_ids_list $attributes_arr(form_id)] == -1 } {
+        ns_log Error "qf_choice: unknown form_id $attributes_arr(form_id)"
+        ad_script_abort
+    }
+    lappend select_list form_id $attributes_arr(form_id)
 
     # if attributes_arr(type) = select, then items are option tags wrapped by a select tag
     # if attributes_arr(type) = checkbox, then items are input tags, wrapped in a list for now
@@ -1241,7 +1259,7 @@ ad_proc -public qf_choices {
         # create wrapping tag
         set tag_wrapping "ul"
         set args_html "<${tag_wrapping}"
-        foreach {attribute value} $args_list {
+        foreach {attribute value} $attributes_select_list {
             # ignore proc parameters that are not tag attributes
             if { $attribute ne "value" } {
                 if { [string range $attribute 1 1] eq "-" } {
@@ -1253,25 +1271,25 @@ ad_proc -public qf_choices {
             }
         }
         append args_html ">\n"
-        qf_insert_html $attributes_arr(form_id) $args_html
+        qf_append form_id $attributes_arr(form_id) html $args_html
         set args_html ""
 
         # verify this is a list of lists.
         set list_length [llength $attributes_arr(value)]
         # test on the second input, less chance its a special case
-        set second_input_attributes_count [llength [index $attributes_arr(value) 1]]
+        set second_input_attributes_count [llength [lindex $attributes_arr(value) 1]]
         if { $list_length > 1 && $second_input_attributes_count < 2 } {
             # a list was passed instead of a list of lists. Adjust..
             set attributes_arr(value) [list $attributes_arr(value)]
         }
         
         foreach input_attributes_list $attributes_arr(value) {
-            lappend input_attributes_list form_id $attribute_arr(form_id) 
+            lappend input_attributes_list form_id $attributes_arr(form_id) 
             qf_input $input_attributes_list
         }
 
         append args_html "</${tag_wrapping}>"
-        qf_insert_html $attributes_arr(form_id) $args_html
+        qf_append form_id $attributes_arr(form_id) html $args_html
     } else {
         set args_html [qf_select $select_list]
     }
