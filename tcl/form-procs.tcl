@@ -671,7 +671,7 @@ ad_proc -private qf_option {
     # prepare attributes to process
     set tag_attributes_list [list]
     foreach attribute $attributes_list {
-        if { $attribute ne "selected" && $attribute ne "disabled"} {
+        if { $attribute ne "selected" && $attribute ne "disabled" && $attribute ne "checked" } {
             lappend tag_attributes_list $attribute $attributes_arr($attribute)
         } 
     }
@@ -683,6 +683,9 @@ ad_proc -private qf_option {
         set name_html $attributes_arr(value)
     } else {
         set name_html ""
+    }
+    if { [info exists attributes_arr(checked)] && ![info exists attributes_arr(selected)] } {
+        set attributes_arr(selected) "1"
     }
     if { [info exists attributes_arr(selected)] && $attributes_arr(selected) == 1 } {
         set option_html "<option[qf_insert_attributes $tag_attributes_list] selected>$name_html</option>\n"
