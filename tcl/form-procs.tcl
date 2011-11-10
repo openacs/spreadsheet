@@ -117,6 +117,8 @@ ad_proc -public qf_form {
     {arg16 ""}
     {arg17 ""}
     {arg18 ""}
+    {arg19 ""}
+    {arg20 ""}
 } {
     Initiates a form with form tag and supplied attributes. Returns an id. A clumsy url based id is provided if not passed (not recommended).
 } {
@@ -142,7 +144,7 @@ ad_proc -public qf_form {
     set attributes_tag_list [list action class id method name style target title]
     set attributes_full_list $attributes_tag_list
     lappend attributes_tag_list form_id
-    set arg_list [list $arg1 $arg2 $arg3 $arg4 $arg5 $arg6 $arg7 $arg8 $arg9 $arg10 $arg11 $arg12 $arg13 $arg14 $arg15 $arg16 $arg17 $arg18]
+    set arg_list [list $arg1 $arg2 $arg3 $arg4 $arg5 $arg6 $arg7 $arg8 $arg9 $arg10 $arg11 $arg12 $arg13 $arg14 $arg15 $arg16 $arg17 $arg18 $arg19 $arg20]
     set attributes_list [list]
     foreach {attribute value} $arg_list {
         set attribute_index [lsearch -exact $attributes_full_list $attribute]
@@ -161,6 +163,7 @@ ad_proc -public qf_form {
         set attributes_arr(method) "post"
         lappend attributes_list "method"
     }
+# if html5 should we default novalidate to novalidate? No for now.
 
     if { ![info exists __qf_remember_attributes] } {
         set __qf_remember_attributes 0
@@ -952,6 +955,14 @@ ad_proc -public qf_input {
         lappend attributes_list "checked"
     }
 
+    # by default, wrap the input with a label tag for better UI, part 1
+    if { [info exists attributes_arr(label)] && [info exists attributes_arr(type) ] && $attributes_arr(type) ne "hidden" } {
+        if { ![info exists attributes_arr(id) ] } {
+            set attributes_arr(id) $attributes_arr(name)
+            append attributes_arr(id) "-[string range [clock clicks -milliseconds] end-3 end]-[string range [expr { rand() }] 2 end]"
+            lappend attributes_list "id"
+        }
+    }
     # prepare attributes to process
     set tag_attributes_list [list]
     set tag_suffix ""
@@ -965,12 +976,8 @@ ad_proc -public qf_input {
         }
     }
 
-    # by default, wrap the input with a label tag for better UI
+    # by default, wrap the input with a label tag for better UI, part 2
     if { [info exists attributes_arr(label)] && [info exists attributes_arr(type) ] && $attributes_arr(type) ne "hidden" } {
-        if { ![info exists attributes_arr(id) ] } {
-            set attributes_arr(id) $attributes_arr(name)
-            append attributes_arr(id) "-[string range [clock clicks -milliseconds] end-3 end]-[string range [expr { rand() }] 2 end]"
-        }
         if { $attributes_arr(type) eq "checkbox" || $attributes_arr(type) eq "radio" } {
             set tag_html "<label for=\"${attributes_arr(id)}\"><input[qf_insert_attributes $tag_attributes_list]${tag_suffix}>${attributes_arr(label)}</label>"
         } else {
