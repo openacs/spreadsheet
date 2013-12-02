@@ -88,7 +88,7 @@ if { $form_posted } {
         set message_body $input_array(message)
         append message_body "\n\nfrom ip: [ns_conn peeraddr]"
 
-        ns_sendmail $to $from $subject $message_body
+        acs_mail_lite::send -to_addr $to -from_addr $from -subject $subject -body $message_body
 
         lappend user_message_list "Your message has been sent."
     } 
