@@ -154,7 +154,7 @@ ad_proc -public qss_txt_table_stats {
             }
         }
 
-        # column count expands (not contracts) if delimeter is shared in data
+        # column count expands (not contracts) if delimiter is shared in data
         if { $median_old == 0 } {
             set median_old $median
         }

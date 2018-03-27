@@ -1267,7 +1267,7 @@ ad_proc -public qss_tips_row_of_table_label_value {
 } {
     Reads a row from table_id as a name_value_list.
     <br>
-    If more than one row matches, returns 1 row based on value of choosen:
+    If more than one row matches, returns 1 row based on value of chosen:
     <ul><li>
     -1 = return empty row
     </li><li>
