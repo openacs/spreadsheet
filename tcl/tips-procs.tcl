@@ -1022,7 +1022,7 @@ ad_proc -private qss_tips_field_def_read {
 } { 
     Reads definitions about fields in a table.
     <br>
-    Returns an ordered list of lists, where colums are:
+    Returns an ordered list of lists, where columns are:
     <br>
     field_id,label,name,default_val,tdt_data_type,field_type
     <br>
