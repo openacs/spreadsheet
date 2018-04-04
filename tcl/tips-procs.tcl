@@ -1417,7 +1417,7 @@ ad_proc -public qss_tips_row_of_table_label_value {
             ns_log Notice "qss_tips_row_of_table_label_value.1101: no fields defined for table_id '${table_id}'"
         }
     } else {
-        ns_log_ Notice "qss_tips_row_of_table_label_value.1104: table_id '${table_id}' not a natural number."
+        ns_log Notice "qss_tips_row_of_table_label_value.1104: table_id '${table_id}' not a natural number."
     }
     return $row_list
 }
