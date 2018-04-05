@@ -382,7 +382,7 @@ aa_register_case -cats {api smoke} qc_hf_permission_check {
 
 
 
-            # Case 6: Case 5 with some random role deletes, so that only one user per role, but maybe differnt user than c5..
+            # Case 6: Case 5 with some random role deletes, so that only one user per role, but maybe different user than c5..
             set customer_id 5
             foreach c5cuid $c5_uid_list {
                 set t_list $c5uwr_larr(${c5uid})

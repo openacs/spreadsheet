@@ -878,7 +878,7 @@ ad_proc -public qf_input {
     creates a form input tag, supplying attributes where nonempty values are supplied. when using CHECKED, set the attribute to 1.
     allowed attributes: type accesskey align alt border checked class id maxlength name readonly size src tabindex value.
     other allowed: form_id label. label is used to wrap the input tag with a label tag containing a label that is associated with the input.
-    checkbox and radio inputs present label after input tag, other inputs are preceeded by label. Omit label attribute to not use this feature.
+    checkbox and radio inputs present label after input tag, other inputs are preceded by label. Omit label attribute to not use this feature.
 } {
     # use upvar to set form content, set/change defaults
     # __qf_arr contains last attribute values of tag, indexed by {tag}_attribute, __form_last_id is in __qf_arr(form_id)

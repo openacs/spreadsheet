@@ -519,7 +519,7 @@ ad_proc -public qss_table_write {
                     set name =:name,title =:title,comments=:comments, flags=:flags, last_modified=:nowts
                     where id = :table_id and instance_id=:instance_id and user_id=:user_id }
                 
-                # get list of cell_rc referencs in this table. We need to track updates, and delete any remaining ones.
+                # get list of cell_rc references in this table. We need to track updates, and delete any remaining ones.
                 set cells_list [db_list simple_table_cells_list {select cell_rc from qss_simple_cells where table_id =:table_id } ]
                 set cells 0
                 set row 0

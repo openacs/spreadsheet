@@ -349,7 +349,7 @@ aa_register_case -cats {api smoke} qss_tips_check {
                         if { $f_row_id ne "" } {
                             set success_p 1
                             set f_row_id_arr(${r}) $f_row_id
-                            # first and last occurrance are determined by this ordered list of mapped ids. 0 is first..
+                            # first and last occurrence are determined by this ordered list of mapped ids. 0 is first..
                             lappend f_row_nbr_larr(${f_row_id}) $r
                             lappend data_row_id_list $f_row_id
                             set data_row_id_list [list $f_row_id]
@@ -433,7 +433,7 @@ aa_register_case -cats {api smoke} qss_tips_check {
                                 set success_p [qss_tips_row_id_exists_q $row_id_new $t_id_arr(${i})]
                                 if { $success_p } {
                                     set f_row_id_arr(${r}) $row_id_new
-                                    # first and last occurrance are determined by this ordered list of mapped ids. 0 is first..
+                                    # first and last occurrence are determined by this ordered list of mapped ids. 0 is first..
                                     lappend f_row_nbr_larr(${row_id_new}) $r
                                     lappend data_row_id_list $row_id_new
                                 }
